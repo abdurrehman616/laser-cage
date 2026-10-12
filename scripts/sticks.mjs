@@ -1,0 +1,24 @@
+import { chromium } from 'playwright-core';
+const out = process.argv[2];
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, hasTouch: true, isMobile: true });
+const pg = await ctx.newPage();
+const errs = []; pg.on('pageerror', e => errs.push(e.message)); pg.on('console', m => m.type() === 'error' && errs.push(m.text()));
+await pg.goto('http://localhost:4173/'); await pg.waitForTimeout(800);
+await pg.evaluate(() => { window.__lc.profile.tutorialDone = true; });
+await pg.click('.mode[data-mode=bots]'); await pg.click('#playBtn');
+await pg.waitForFunction(() => window.__lc.match?.phase === 'hide', null, { timeout: 60000 });
+const before = await pg.evaluate(() => ({ x: window.__lc.match.players[0].x, z: window.__lc.match.players[0].z, t: window.__lc.match.clock }));
+// hold the move stick up-right using CDP touch events (two fingers: move + aim)
+const cdp = await ctx.newCDPSession(pg);
+const mv = await pg.locator('#movepad').boundingBox(), am = await pg.locator('#aimpad').boundingBox();
+const mc = { x: mv.x + mv.width / 2, y: mv.y + mv.height / 2 }, ac = { x: am.x + am.width / 2, y: am.y + am.height / 2 };
+await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: mc.x, y: mc.y, id: 1 }, { x: ac.x, y: ac.y, id: 2 }] });
+await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: mc.x, y: mc.y - 45, id: 1 }, { x: ac.x - 45, y: ac.y, id: 2 }] });
+await pg.waitForTimeout(1500);
+await pg.screenshot({ path: out + '/sticks.png' });
+await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+const after = await pg.evaluate(() => ({ x: window.__lc.match.players[0].x, z: window.__lc.match.players[0].z, aim: window.__lc.match.players[0].aim, t: window.__lc.match.clock }));
+console.log('before', before, 'after', after, 'game seconds passed', (after.t - before.t).toFixed(2));
+console.log(errs.join('\n') || 'no errors');
+await b.close();

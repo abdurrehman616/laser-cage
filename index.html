@@ -26,7 +26,8 @@
     </div>
     <div id="banner" class="off"></div>
     <div id="hint" hidden></div>
-    <div id="aimpad" hidden><span>AIM</span><div id="knob"></div></div>
+    <div id="movepad" class="pad move" hidden><span>MOVE</span><div class="knob"></div></div>
+    <div id="aimpad" class="pad aim" hidden><span>AIM</span><div class="knob"></div></div>
     <button id="lockBtn" class="btn hot" type="button" hidden>LOCK IN</button>
 
     <!-- Home -->
@@ -93,6 +94,9 @@
       <div class="sheet">
         <label class="toggle"><span>Sound</span><input type="checkbox" id="optSound" /></label>
         <label class="toggle"><span>Vibration</span><input type="checkbox" id="optVibe" /></label>
+        <label class="toggle"><span>Aim stick on the left</span><input type="checkbox" id="optSwap" /></label>
+        <div class="group"><span class="label">Graphics</span><div class="seg" id="segGfx"></div>
+          <p class="note">Auto lowers the graphics if your phone struggles. Low is the smoothest.</p></div>
         <p class="note">Laser Cage v0.1 · offline build</p>
       </div>
     </section>
@@ -107,7 +111,7 @@
           <li><b>Reveal.</b> At the lock, everyone appears and the lasers fire. Anyone touching a laser is out.</li>
           <li><b>Drop.</b> The pink outer ring falls after every round. Don't be standing on it.</li>
         </ol>
-        <p class="note">Tap the floor to walk. Drag the AIM pad to aim. On a computer, use WASD and the mouse.</p>
+        <p class="note">Use the MOVE stick (or tap the floor) to walk and the AIM stick to aim. On a computer, use WASD and the mouse.</p>
         <button id="howOk" class="btn hot" type="button">GOT IT</button>
       </div>
     </section>

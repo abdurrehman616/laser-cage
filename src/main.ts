@@ -70,7 +70,14 @@ document.querySelectorAll<HTMLButtonElement>('.mode').forEach(b => b.addEventLis
   show('setup');
 }));
 document.querySelectorAll('.back').forEach(b => b.addEventListener('click', () => { sfx.click(); show('home'); }));
-$('settingsBtn').onclick = () => { sfx.click(); ($('optSound') as HTMLInputElement).checked = profile.sound; ($('optVibe') as HTMLInputElement).checked = profile.vibrate; show('settings'); };
+$('settingsBtn').onclick = () => {
+  sfx.click();
+  ($('optSound') as HTMLInputElement).checked = profile.sound; ($('optVibe') as HTMLInputElement).checked = profile.vibrate;
+  ($('optSwap') as HTMLInputElement).checked = profile.swapSticks;
+  seg('segGfx', ['auto', 'high', 'low'], () => profile.gfx, v => { profile.gfx = v; save(); applyGfx(); }, ['Auto', 'High', 'Low']);
+  show('settings');
+};
+$('optSwap').onchange = e => { profile.swapSticks = (e.target as HTMLInputElement).checked; save(); applySwap(); };
 $('optSound').onchange = e => { profile.sound = (e.target as HTMLInputElement).checked; save(); };
 $('optVibe').onchange = e => { profile.vibrate = (e.target as HTMLInputElement).checked; save(); };
 $('howBtn').onclick = () => { sfx.click(); pendingStart = false; show('howto'); };
@@ -236,12 +243,12 @@ function chips() {
 function updateControls() {
   const m = match, c = m?.controlled();
   const inGame = screen === 'game';
-  $('aimpad').hidden = !(inGame && c);
+  $('aimpad').hidden = $('movepad').hidden = !(inGame && c);
+  if (!c) { moveStick.reset(); aimStick.reset(); }
   $('lockBtn').hidden = !(inGame && m?.phase === 'plan');
   const hint = $('hint');
-  hint.classList.toggle('raised', m?.phase === 'plan');
-  if (inGame && m?.phase === 'hide' && c && m.round <= 2) { hint.hidden = false; hint.textContent = 'Tap the floor to move somewhere new. Aim where you think someone went.'; }
-  else if (inGame && m?.phase === 'plan') { hint.hidden = false; hint.textContent = 'Tap inside the dashed circle to move. Drag the pad to aim.'; }
+  if (inGame && m?.phase === 'hide' && c && m.round <= 2) { hint.hidden = false; hint.textContent = 'Move somewhere new. Aim where you think someone went.'; }
+  else if (inGame && m?.phase === 'plan') { hint.hidden = false; hint.textContent = 'Move your spot inside the dashed circle, aim, then lock in.'; }
   else hint.hidden = true;
 }
 
@@ -298,20 +305,36 @@ canvas.addEventListener('pointermove', e => {
 });
 addEventListener('pointerup', () => (dragging = false));
 
-const pad = $('aimpad'), knob = $('knob');
-function padAim(e: PointerEvent) {
-  const r = pad.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), L = Math.hypot(dx, dy);
-  const k = Math.min(L, 40) / (L || 1);
-  knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
-  const c = match?.controlled(); if (!c || L < 8) return;
-  const o = match!.mode === 'pp' && c.target ? c.target : c;
-  const a = view.screenDirToAngle(o.x, o.z, dx / L, dy / L);
-  if (a !== null) match!.setAim(a);
+// Twin sticks. Each stick tracks its own finger, so you can move and aim at the same time.
+class Stick {
+  x = 0; y = 0; mag = 0; private id: number | null = null;
+  constructor(private el: HTMLElement, private onMove?: (dx: number, dy: number, mag: number) => void) {
+    const knob = el.querySelector('.knob') as HTMLElement;
+    const upd = (e: PointerEvent) => {
+      const r = el.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      const L = Math.hypot(dx, dy), max = r.width * 0.32, k = Math.min(L, max) / (L || 1);
+      knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+      this.mag = L < 8 ? 0 : Math.min(1, L / max);
+      this.x = L ? dx / L : 0; this.y = L ? dy / L : 0;
+      if (this.mag) this.onMove?.(this.x, this.y, this.mag);
+    };
+    el.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); unlockAudio(); this.id = e.pointerId; try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ } el.classList.add('active'); upd(e); });
+    el.addEventListener('pointermove', e => { if (e.pointerId === this.id) upd(e); });
+    const end = (e: PointerEvent) => { if (e.pointerId === this.id) this.reset(); };
+    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    this.reset = () => { this.id = null; this.mag = 0; knob.style.transform = ''; el.classList.remove('active'); };
+  }
+  reset() { /* set in constructor */ }
 }
-pad.addEventListener('pointerdown', e => { e.stopPropagation(); pad.setPointerCapture(e.pointerId); padAim(e); });
-pad.addEventListener('pointermove', e => { if (e.buttons || e.pointerType !== 'mouse') padAim(e); });
-pad.addEventListener('pointerup', () => (knob.style.transform = ''));
-pad.addEventListener('pointercancel', () => (knob.style.transform = ''));
+const aimStick = new Stick($('aimpad'), (dx, dy) => {
+  const c = match?.controlled(); if (!c) return;
+  const o = match!.mode === 'pp' && c.target ? c.target : c;
+  const a = view.screenDirToAngle(o.x, o.z, dx, dy);
+  if (a !== null) match!.setAim(a);
+});
+const moveStick = new Stick($('movepad'));
+function applySwap() { $('app').classList.toggle('swap', profile.swapSticks); }
+applySwap();
 
 addEventListener('keydown', e => {
   keys.add(e.key.toLowerCase());
@@ -333,18 +356,50 @@ import('@capacitor/app').then(({ App }) => {
   });
 }).catch(() => { /* running in a browser */ });
 
+// ---------------- graphics quality ----------------
+function applyGfx() { view.setQuality(profile.gfx === 'low' || (profile.gfx === 'auto' && autoLow) ? 'low' : 'high'); }
+let autoLow = (navigator.hardwareConcurrency || 8) <= 4 || ((navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 8) <= 3;
+applyGfx();
+let slowFrames = 0, sampled = 0;
+function watchSpeed(realDt: number) {
+  // if the phone keeps missing frames during a match, switch to Low automatically
+  if (profile.gfx !== 'auto' || autoLow || screen !== 'game') return;
+  sampled++; if (realDt > 1 / 40) slowFrames++;
+  if (sampled >= 180) {
+    if (slowFrames / sampled > 0.35) { autoLow = true; applyGfx(); }
+    sampled = slowFrames = 0;
+  }
+}
+
 // ---------------- loop ----------------
-let last = performance.now();
+// The rules run at a fixed 60 steps per second, so the game never slows down on a slow phone;
+// a slow phone just shows fewer frames.
+const STEP = 1 / 60;
+let last = performance.now(), acc = 0;
+const tmpDir = { x: 0, z: 0 };
+function stickToWorld(sx: number, sy: number) {
+  const c = match?.controlled(); if (!c) return null;
+  const a = view.screenDirToAngle(c.x, c.z, sx, sy); if (a === null) return null;
+  tmpDir.x = Math.cos(a); tmpDir.z = Math.sin(a); return tmpDir;
+}
 function frame(now: number) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const realDt = Math.min(0.25, (now - last) / 1000); last = now;
+  watchSpeed(realDt);
   if (match && !paused && screen !== 'handoff') {
+    acc += realDt;
     const kx = (+keys.has('d') || +keys.has('arrowright')) - (+keys.has('a') || +keys.has('arrowleft'));
     const kz = (+keys.has('s') || +keys.has('arrowdown')) - (+keys.has('w') || +keys.has('arrowup'));
-    if (kx || kz) { const L = Math.hypot(kx, kz); match.nudge(kx / L, kz / L, dt); }
-    match.update(dt);
-    $('barFill').style.transform = `scaleX(${Math.max(0, match.t / match.tt)})`;
-  }
-  view.render(dt);
+    const dir = moveStick.mag ? stickToWorld(moveStick.x, moveStick.y) : null;
+    while (acc >= STEP) {
+      if (dir) match.nudge(dir.x, dir.z, STEP, moveStick.mag);
+      else if (kx || kz) { const L = Math.hypot(kx, kz); match.nudge(kx / L, kz / L, STEP); }
+      match.update(STEP);
+      acc -= STEP;
+      if (!match || (screen as Screen) === 'handoff') { acc = 0; break; }
+    }
+    if (match) $('barFill').style.transform = `scaleX(${Math.max(0, match.t / match.tt)})`;
+  } else acc = 0;
+  view.render(realDt);
   requestAnimationFrame(frame);
 }
 show('home');

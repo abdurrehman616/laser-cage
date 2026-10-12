@@ -112,12 +112,17 @@ button:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 #banner { position: absolute; left: 16px; right: 16px; top: 30%; text-align: center; font-family: var(--f-display); font-size: clamp(30px, 9vw, 58px); pointer-events: none; text-shadow: 0 4px 0 #000, 0 0 28px rgba(0,0,0,.7); transition: opacity .25s, transform .25s; }
 #banner small { display: block; font-family: var(--f-ui); font-weight: 700; font-size: 14px; letter-spacing: .2em; text-transform: uppercase; color: var(--ink); opacity: .8; margin-top: 6px; }
 #banner.off { opacity: 0; transform: scale(.94); }
-#hint { position: absolute; left: 16px; right: 160px; bottom: calc(var(--safe-b) + 30px); font-size: 14px; line-height: 1.35; color: var(--ink); text-shadow: 0 1px 3px #000; pointer-events: none; }
-#aimpad { position: absolute; right: 18px; bottom: calc(var(--safe-b) + 22px); width: 128px; height: 128px; border-radius: 50%; border: 2px solid rgba(233,238,241,.22); background: rgba(10,18,20,.55); touch-action: none; }
-#aimpad span { position: absolute; left: 0; right: 0; top: -20px; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .2em; color: var(--ink); opacity: .7; }
-#knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px; border-radius: 50%; background: var(--hot); box-shadow: 0 0 18px rgba(255,77,109,.5); }
-#lockBtn { position: absolute; left: 16px; bottom: calc(var(--safe-b) + 22px); }
-#hint.raised { bottom: calc(var(--safe-b) + 92px); right: 160px; }
+#hint { position: absolute; left: 16px; right: 16px; bottom: calc(var(--safe-b) + 240px); font-size: 14px; line-height: 1.35; color: var(--ink); text-shadow: 0 1px 3px #000; pointer-events: none; text-align: center; }
+/* twin sticks: move on the left, aim on the right (swapped with .swap on #app) */
+.pad { position: absolute; bottom: calc(var(--safe-b) + 22px); width: 132px; height: 132px; border-radius: 50%; border: 2px solid rgba(233,238,241,.22); background: rgba(10,18,20,.5); touch-action: none; }
+.pad.move { left: 18px; } .pad.aim { right: 18px; }
+#app.swap .pad.move { left: auto; right: 18px; } #app.swap .pad.aim { right: auto; left: 18px; }
+.pad span { position: absolute; left: 0; right: 0; top: -20px; text-align: center; font-size: 11px; font-weight: 700; letter-spacing: .2em; color: var(--ink); opacity: .7; }
+.pad .knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px; border-radius: 50%; }
+.pad.move .knob { background: var(--ink); box-shadow: 0 0 14px rgba(233,238,241,.35); }
+.pad.aim .knob { background: var(--hot); box-shadow: 0 0 18px rgba(255,77,109,.5); }
+.pad.active { border-color: rgba(233,238,241,.5); }
+#lockBtn { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-b) + 176px); padding: 12px 22px; }
 #toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-b) + 24px); background: var(--ink); color: var(--panel); font-weight: 700; padding: 9px 14px; border-radius: 10px; font-size: 14px; max-width: calc(100% - 32px); text-align: center; z-index: 9; }
 
 @media (max-width: 420px) { .modes { grid-template-columns: 1fr 1fr; } .modes .mode.locked { grid-column: span 2; } }

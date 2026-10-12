@@ -10,6 +10,8 @@ export interface Profile {
   sound: boolean;
   vibrate: boolean;
   tutorialDone: boolean;
+  swapSticks: boolean;          // false = move on the left, aim on the right
+  gfx: 'auto' | 'high' | 'low';
   stats: { matches: number; wins: number; kills: number; bestRound: number };
 }
 
@@ -20,7 +22,7 @@ function fresh(): Profile {
     v: 1, coins: 150,
     owned: ITEMS.filter(i => i.price === 0).map(i => i.id),
     equip: { ...DEFAULT_EQUIP },
-    sound: true, vibrate: true, tutorialDone: false,
+    sound: true, vibrate: true, tutorialDone: false, swapSticks: false, gfx: 'auto',
     stats: { matches: 0, wins: 0, kills: 0, bestRound: 0 },
   };
 }

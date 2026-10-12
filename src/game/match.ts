@@ -139,9 +139,17 @@ export class Match {
     const o = this.mode === 'pp' && p.target ? p.target : p;
     if (Math.hypot(x - o.x, z - o.z) > 0.2) p.aim = Math.atan2(z - o.z, x - o.x);
   }
-  nudge(mx: number, mz: number, dt: number) {
-    const p = this.controlled(); if (!p || this.mode !== 'bots') return;
-    p.target = null; this.tryMove(p, mx * PLAYER.speed * dt, mz * PLAYER.speed * dt);
+  /** Joystick / keyboard movement. dx,dz is a world direction, mag 0..1. */
+  nudge(dx: number, dz: number, dt: number, mag = 1) {
+    const p = this.controlled(); if (!p) return;
+    const step = PLAYER.speed * mag * dt;
+    if (this.mode === 'bots') { p.target = null; this.tryMove(p, dx * step, dz * step); return; }
+    // pass & play: the stick moves your planned spot inside the reach circle
+    const t = p.target ?? { x: p.x, z: p.z };
+    let x = t.x + dx * step * 1.4, z = t.z + dz * step * 1.4;
+    const ox = x - p.x, oz = z - p.z, L = Math.hypot(ox, oz);
+    if (L > PLAYER.planReach) { x = p.x + (ox / L) * PLAYER.planReach; z = p.z + (oz / L) * PLAYER.planReach; }
+    if (this.onFloor(x, z)) p.target = { x, z };
   }
   /** Pass & play: current planner confirms. */
   lockIn() {

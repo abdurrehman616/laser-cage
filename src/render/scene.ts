@@ -53,13 +53,43 @@ export class ArenaView {
   private shake = 0;
   private floorId = '';
   m: Match | null = null;
+  private sun!: THREE.DirectionalLight;
+  quality: 'high' | 'low' = 'high';
+  // scratch objects reused every frame, so the phone's garbage collector doesn't cause hitches
+  private tA = new THREE.Vector3(); private tB = new THREE.Vector3(); private tC = new THREE.Color();
+  private fallMats: THREE.MeshStandardMaterial[] = [];
+
+  // Tiny off-screen copies of effect materials so their shaders are ready before the first hit or floor drop
+  // (otherwise the phone pauses for a moment the first time each effect appears).
+  private warm = new THREE.Group();
+  private warmUp() {
+    this.scene.remove(this.warm); this.warm = new THREE.Group(); this.warm.position.y = -60;
+    const g = new THREE.BoxGeometry(0.01, 0.01, 0.01);
+    for (const m of [...this.fallMats, this.tileWarn, new THREE.MeshBasicMaterial({ color: '#fff', transparent: true, toneMapped: false }),
+      new THREE.MeshBasicMaterial({ color: '#fff', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })]) this.warm.add(new THREE.Mesh(g, m));
+    this.scene.add(this.warm);
+  }
+  /** Compile every shader now, during a loading moment, instead of mid-match. */
+  prewarm() { try { this.renderer.compile(this.scene, this.camera); } catch { /* optional */ } }
+
+  /** Low = fewer pixels and no shadows. Used automatically on slow phones. */
+  setQuality(q: 'high' | 'low') {
+    this.quality = q;
+    const dpr = devicePixelRatio || 1;
+    this.renderer.setPixelRatio(q === 'high' ? Math.min(dpr, 1.75) : Math.min(dpr, 1));
+    this.renderer.shadowMap.enabled = q === 'high';
+    this.sun.castShadow = q === 'high';
+    this.scene.traverse(o => { const mm = (o as THREE.Mesh).material; if (mm) (Array.isArray(mm) ? mm : [mm]).forEach(x => (x.needsUpdate = true)); });
+    this.resize();
+  }
 
   constructor(private canvas: HTMLCanvasElement, labels: HTMLElement) {
     this.labels = labels;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    // Sharp phone screens hide jagged edges anyway, so skip antialiasing there (big speed win).
+    const dpr = devicePixelRatio || 1;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: dpr < 1.5, powerPreference: 'high-performance', stencil: false });
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
 
@@ -70,6 +100,7 @@ export class ArenaView {
     const sun = new THREE.DirectionalLight('#fff3df', 2.0);
     sun.position.set(-6, 16, 8); sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
+    this.sun = sun;
     Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 11, bottom: -11, near: 1, far: 40 });
     sun.shadow.bias = -0.0008;
     this.scene.add(sun);
@@ -169,6 +200,9 @@ export class ArenaView {
     this.tileInner = mk(f.inner);
     this.tileWarn = mk('#c07892');
     this.tileSide ??= new THREE.MeshStandardMaterial({ color: '#2a3238', roughness: 0.8 });
+    this.fallMats.forEach(m => m.dispose());
+    this.fallMats = [this.tileSide, this.tileTop].map(m => { const c = m.clone(); c.transparent = true; return c; });
+    this.warmUp();
     this.tileMeshes.forEach(t => this.applyTileMat(t));
   }
 
@@ -187,7 +221,7 @@ export class ArenaView {
       const mesh = new THREE.Mesh(geo, this.tileSide);
       mesh.position.set(t.x, 0.0, t.z);
       mesh.userData = { tile: t, ring: t.ring };
-      mesh.receiveShadow = true; mesh.castShadow = true;
+      mesh.receiveShadow = true;
       this.applyTileMat(mesh);
       this.tileGroup.add(mesh); this.tileMeshes.push(mesh);
     }
@@ -224,6 +258,7 @@ export class ArenaView {
       this.buildTiles(m);
       this.vis = m.players.map(p => this.makeVis(p));
       this.clearPreview();
+      this.prewarm();
     }
   }
 
@@ -243,8 +278,8 @@ export class ArenaView {
     this.clearShots();
     for (const s of m.shots) {
       const v = this.vis.find(x => x.p === s.from); if (!v) continue;
-      const from = new THREE.Vector3(); v.rig.gunTip.getWorldPosition(from);
-      const to = new THREE.Vector3(s.x, GUN_Y, s.z);
+      const from = v.rig.gunTip.getWorldPosition(this.tA);
+      const to = this.tB.set(s.x, GUN_Y, s.z);
       const len = from.distanceTo(to);
       const color = s.hit ? '#ffffff' : s.from.color;
       for (const [w, o] of [[0.12, 1], [0.45, 0.5]] as const) {
@@ -259,10 +294,11 @@ export class ArenaView {
     }
     this.shake = 0.35;
   }
+  private partGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
   burst(x: number, z: number, color: string) {
-    const geo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-    for (let i = 0; i < 22; i++) {
-      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: i % 3 ? color : '#ffffff', transparent: true, toneMapped: false }));
+    const mats = [color, '#ffffff'].map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, toneMapped: false }));
+    for (let i = 0; i < 18; i++) {
+      const m = new THREE.Mesh(this.partGeo, mats[i % 3 ? 0 : 1]);
       m.position.set(x, 0.9, z);
       const v = new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 4 + 1, (Math.random() - 0.5) * 5);
       this.fx.add(m); this.particles.push({ m, v, life: 1 });
@@ -343,13 +379,13 @@ export class ArenaView {
         if (t.fall > 0) {
           if (!mesh.userData.falling) {
             mesh.userData.falling = true;
-            const mats = (mesh.material as THREE.Material[]).map(x => { const c = x.clone(); c.transparent = true; return c; });
-            mesh.material = mats;
+            const [side, top] = this.fallMats;
+            mesh.material = [side, top, side];
             mesh.userData.spin = (Math.random() - 0.5) * 2;
           }
           mesh.position.y = -t.fall * t.fall * 7;
           mesh.rotation.x = t.fall * mesh.userData.spin; mesh.rotation.z = t.fall * mesh.userData.spin * 0.6;
-          (mesh.material as THREE.Material[]).forEach(x => (x.opacity = 1 - t.fall));
+          this.fallMats.forEach(x => (x.opacity = 1 - t.fall));
           mesh.visible = t.fall < 1;
         } else {
           const warn = warnPhase && !m.final && t.ring === m.ring;
@@ -387,9 +423,9 @@ export class ArenaView {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const q = this.particles[i];
       q.life -= dt * 1.1; q.v.y -= 9 * dt; q.m.position.addScaledVector(q.v, dt);
-      if (q.m.position.y < 0.05 && q.m.position.distanceTo(new THREE.Vector3()) < 7) { q.m.position.y = 0.05; q.v.multiplyScalar(0.5); q.v.y = Math.abs(q.v.y) * 0.3; }
+      if (q.m.position.y < 0.05 && Math.hypot(q.m.position.x, q.m.position.z) < 7) { q.m.position.y = 0.05; q.v.multiplyScalar(0.5); q.v.y = Math.abs(q.v.y) * 0.3; }
       (q.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, q.life);
-      if (q.life <= 0) { this.fx.remove(q.m); (q.m.material as THREE.Material).dispose(); this.particles.splice(i, 1); }
+      if (q.life <= 0) { this.fx.remove(q.m); this.particles.splice(i, 1); }
     }
 
     // camera shake + gentle drift on menus
@@ -401,11 +437,11 @@ export class ArenaView {
     else {
       const dist = this.shot === 2 ? (portrait ? 8.5 : 6.5) : (portrait ? 6.8 : 5.5), drop = this.shot === 2 ? (portrait ? 2.2 : 1.2) : (portrait ? 1.0 : 0.4);
       const sway = Math.sin(this.time * 0.25) * 1.2;
-      this.camPos.lerp(new THREE.Vector3(sway, 3.6, dist), k);
-      this.camLook.lerp(new THREE.Vector3(0, 0.8 - drop, 0), k);
+      this.camPos.lerp(this.tA.set(sway, 3.6, dist), k);
+      this.camLook.lerp(this.tB.set(0, 0.8 - drop, 0), k);
     }
     this.camera.position.copy(this.camPos);
-    if (s) this.camera.position.add(new THREE.Vector3((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
+    if (s) this.camera.position.add(this.tA.set((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
     this.camera.lookAt(this.camLook);
     this.renderer.render(this.scene, this.camera);
   }
@@ -441,7 +477,7 @@ export class ArenaView {
 
     // laser colour (rainbow cycles)
     if (p.rainbow) {
-      const c = new THREE.Color().setHSL((this.time * 0.35) % 1, 1, 0.6);
+      const c = this.tC.setHSL((this.time * 0.35) % 1, 1, 0.6);
       v.beamMat.color.copy(c); v.glowMat.color.copy(c); rig.tipMat.color.copy(c); rig.tipMat.emissive.copy(c);
     }
 
@@ -455,7 +491,7 @@ export class ArenaView {
     v.beam.visible = v.glow.visible = v.dot.visible = show;
     if (show) {
       rig.root.updateMatrixWorld(true);
-      const from = new THREE.Vector3(); rig.gunTip.getWorldPosition(from);
+      const from = rig.gunTip.getWorldPosition(this.tA);
       // pass & play planning: the laser starts from where you plan to stand
       const planning = m && m.mode === 'pp' && m.phase === 'plan' && m.cur === p && p.target;
       if (planning) from.set(p.target!.x + Math.cos(p.aim) * 0.96, from.y, p.target!.z + Math.sin(p.aim) * 0.96);
