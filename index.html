@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1a18" />
+  <link rel="icon" href="./icon.png" />
+  <title>Laser Cage</title>
+</head>
+<body>
+  <div id="app">
+    <canvas id="view"></canvas>
+    <div id="labels"></div>
+
+    <!-- In-match HUD -->
+    <div id="hud" hidden>
+      <div class="hudrow">
+        <span id="roundTag" class="round">Round 1</span>
+        <span id="phaseTag" class="phase">Get ready</span>
+        <button id="pauseBtn" class="iconbtn" type="button" aria-label="Pause">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+        </button>
+      </div>
+      <div id="bar"><i id="barFill"></i></div>
+      <div id="chips"></div>
+    </div>
+    <div id="banner" class="off"></div>
+    <div id="hint" hidden></div>
+    <div id="aimpad" hidden><span>AIM</span><div id="knob"></div></div>
+    <button id="lockBtn" class="btn hot" type="button" hidden>LOCK IN</button>
+
+    <!-- Home -->
+    <section id="home" class="screen">
+      <header class="topbar">
+        <div class="coins"><b class="coin"></b><span id="coinCount">0</span></div>
+        <button id="settingsBtn" class="iconbtn" type="button" aria-label="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+        </button>
+      </header>
+      <div class="brand">
+        <h1>LASER <span>CAGE</span></h1>
+        <p>Hide. Aim. Reveal.</p>
+      </div>
+      <div class="sheet">
+        <div class="modes">
+          <button class="mode" type="button" data-mode="bots">
+            <h3>Vs Bots</h3><p>You against computer players. Works offline.</p>
+          </button>
+          <button class="mode" type="button" data-mode="pp">
+            <h3>Pass &amp; Play</h3><p>2–4 friends on one phone.</p>
+          </button>
+          <button class="mode locked" type="button" data-mode="online">
+            <span class="tag">Soon</span><h3>Online</h3><p>Players from other countries.</p>
+          </button>
+        </div>
+        <div class="row2">
+          <button id="shopBtn" class="btn ghost" type="button">Shop</button>
+          <button id="howBtn" class="btn ghost" type="button">How to play</button>
+        </div>
+        <p id="statLine" class="statline"></p>
+      </div>
+    </section>
+
+    <!-- Match setup -->
+    <section id="setup" class="screen" hidden>
+      <header class="topbar"><button class="iconbtn back" type="button" aria-label="Back">‹</button><span class="title" id="setupTitle">Vs Bots</span><span></span></header>
+      <div class="sheet">
+        <div id="setBots" class="group">
+          <span class="label">Bots</span><div class="seg" id="segBots"></div>
+          <span class="label">Difficulty</span><div class="seg" id="segDiff"></div>
+        </div>
+        <div id="setPP" class="group" hidden>
+          <span class="label">Players</span><div class="seg" id="segPP"></div>
+          <p class="note">Each player plans their move in secret, then you all reveal together. Pass the phone when the screen asks.</p>
+        </div>
+        <button id="playBtn" class="btn hot big" type="button">PLAY</button>
+      </div>
+    </section>
+
+    <!-- Shop -->
+    <section id="shop" class="screen" hidden>
+      <header class="topbar"><button class="iconbtn back" type="button" aria-label="Back">‹</button><span class="title">Shop</span><div class="coins"><b class="coin"></b><span class="coinCount">0</span></div></header>
+      <div class="sheet tall">
+        <div class="tabs" id="shopTabs"></div>
+        <div class="grid" id="shopGrid"></div>
+        <button id="shopAction" class="btn hot" type="button">Equipped</button>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section id="settings" class="screen" hidden>
+      <header class="topbar"><button class="iconbtn back" type="button" aria-label="Back">‹</button><span class="title">Settings</span><span></span></header>
+      <div class="sheet">
+        <label class="toggle"><span>Sound</span><input type="checkbox" id="optSound" /></label>
+        <label class="toggle"><span>Vibration</span><input type="checkbox" id="optVibe" /></label>
+        <p class="note">Laser Cage v0.1 · offline build</p>
+      </div>
+    </section>
+
+    <!-- How to play -->
+    <section id="howto" class="screen dim" hidden>
+      <div class="card">
+        <span class="label">How to play</span>
+        <ol class="steps">
+          <li><b>Remember.</b> At the start of each round you see everyone for a moment.</li>
+          <li><b>Hide &amp; aim.</b> Then everyone vanishes. Move somewhere new and aim where you think someone went.</li>
+          <li><b>Reveal.</b> At the lock, everyone appears and the lasers fire. Anyone touching a laser is out.</li>
+          <li><b>Drop.</b> The pink outer ring falls after every round. Don't be standing on it.</li>
+        </ol>
+        <p class="note">Tap the floor to walk. Drag the AIM pad to aim. On a computer, use WASD and the mouse.</p>
+        <button id="howOk" class="btn hot" type="button">GOT IT</button>
+      </div>
+    </section>
+
+    <!-- Pass & play handoff -->
+    <section id="handoff" class="screen dim" hidden>
+      <div class="card">
+        <span class="label">Pass the phone</span>
+        <h2 id="handName" class="bigname">P1</h2>
+        <p class="note">Everyone else, look away. You'll only see yourself. Pick where to move and where to aim, then press Lock in.</p>
+        <button id="readyBtn" class="btn hot" type="button">I'M READY</button>
+      </div>
+    </section>
+
+    <!-- Pause -->
+    <section id="pause" class="screen dim" hidden>
+      <div class="card">
+        <span class="label">Paused</span>
+        <div class="row2">
+          <button id="quitBtn" class="btn ghost" type="button">Quit</button>
+          <button id="resumeBtn" class="btn hot" type="button">RESUME</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="result" class="screen dim" hidden>
+      <div class="card">
+        <span class="label" id="resLabel">Match over</span>
+        <h2 id="resTitle" class="bigname">Victory</h2>
+        <p id="resSub" class="note"></p>
+        <div class="stats">
+          <div class="stat"><b id="stPlace">1st</b><span>Place</span></div>
+          <div class="stat"><b id="stKills">0</b><span>Hits</span></div>
+          <div class="stat"><b id="stCoins">+0</b><span>Coins</span></div>
+        </div>
+        <div class="row2">
+          <button id="homeBtn" class="btn ghost" type="button">Home</button>
+          <button id="againBtn" class="btn hot" type="button">REMATCH</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" hidden></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

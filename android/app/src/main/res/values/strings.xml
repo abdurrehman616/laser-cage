@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Laser Cage</string>
+    <string name="title_activity_main">Laser Cage</string>
+    <string name="package_name">com.lasercage.game</string>
+    <string name="custom_url_scheme">com.lasercage.game</string>
+</resources>
