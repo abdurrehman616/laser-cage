@@ -3,11 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#0a1a18" />
+  <meta name="theme-color" content="#14205a" />
   <link rel="icon" href="./icon.png" />
   <title>Laser Cage</title>
 </head>
 <body>
+  <!-- inline icon set -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" d="M13.9 2l.5 2.6c.7.2 1.3.5 1.9.9l2.4-1.1 1.9 1.9-1.1 2.4c.4.6.7 1.2.9 1.9l2.6.5v2.8l-2.6.5c-.2.7-.5 1.3-.9 1.9l1.1 2.4-1.9 1.9-2.4-1.1c-.6.4-1.2.7-1.9.9l-.5 2.6h-2.8l-.5-2.6c-.7-.2-1.3-.5-1.9-.9l-2.4 1.1-1.9-1.9 1.1-2.4c-.4-.6-.7-1.2-.9-1.9L2 13.4v-2.8l2.6-.5c.2-.7.5-1.3.9-1.9L4.4 5.8l1.9-1.9 2.4 1.1c.6-.4 1.2-.7 1.9-.9L11.1 2h2.8zM12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path fill="currentColor" d="M7 7V6a5 5 0 0110 0v1h3l-1 14H5L4 7h3zm2 0h6V6a3 3 0 00-6 0v1z"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 110 20 10 10 0 010-20zm0 2c-.9 1.2-1.6 2.8-2 5h4c-.4-2.2-1.1-3.8-2-5zm-2.9.5A8 8 0 004.3 9h3.2c.3-1.7.9-3.3 1.6-4.5zm5.8 0c.7 1.2 1.3 2.8 1.6 4.5h3.2a8 8 0 00-4.8-4.5zM4 11a8 8 0 00.3 2h3a20 20 0 010-2H4zm5.3 0a18 18 0 000 2h5.4a18 18 0 000-2H9.3zm7.4 0a20 20 0 010 2h3a8 8 0 000-2h-3zM4.3 15a8 8 0 004.8 4.5c-.7-1.2-1.3-2.8-1.6-4.5H4.3zm5.2 0c.4 2.2 1.1 3.8 2 5h1c.9-1.2 1.6-2.8 2-5h-5zm7 0c-.3 1.7-.9 3.3-1.6 4.5a8 8 0 004.8-4.5h-3.2z"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 110 20 10 10 0 010-20zm0 14a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm.2-10C9.9 6 8.3 7.4 8.2 9.5h2.6c.1-.8.6-1.3 1.4-1.3.8 0 1.3.5 1.3 1.1 0 .6-.3 1-1.2 1.6-1 .7-1.5 1.4-1.4 2.7v.4h2.5v-.3c0-.7.3-1 1.2-1.6 1-.7 1.6-1.5 1.6-2.8C16.2 7.3 14.6 6 12.2 6z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 3.5L7 12l8.5 8.5 2.1-2.1L11.2 12l6.4-6.4z"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><path fill="currentColor" d="M11 2h2v3h4a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V8a3 3 0 013-3h4V2zM8.5 10a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM9 15v1.5h6V15H9zM1 10h2v5H1zm20 0h2v5h-2zM8 20h8v2H8z"/></symbol>
+  </svg>
+
   <div id="app">
     <canvas id="view"></canvas>
     <div id="labels"></div>
@@ -15,11 +26,9 @@
     <!-- In-match HUD -->
     <div id="hud" hidden>
       <div class="hudrow">
-        <span id="roundTag" class="round">Round 1</span>
-        <span id="phaseTag" class="phase">Get ready</span>
-        <button id="pauseBtn" class="iconbtn" type="button" aria-label="Pause">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-        </button>
+        <span id="roundTag" class="badge round">ROUND 1</span>
+        <span id="phaseTag" class="badge phase">GET READY</span>
+        <button id="pauseBtn" class="gbtn sq blue" type="button" aria-label="Pause"><svg><use href="#i-pause"/></svg></button>
       </div>
       <div id="bar"><i id="barFill"></i></div>
       <div id="chips"></div>
@@ -28,129 +37,110 @@
     <div id="hint" hidden></div>
     <div id="movepad" class="pad move" hidden><span>MOVE</span><div class="knob"></div></div>
     <div id="aimpad" class="pad aim" hidden><span>AIM</span><div class="knob"></div></div>
-    <button id="lockBtn" class="btn hot" type="button" hidden>LOCK IN</button>
 
     <!-- Home -->
     <section id="home" class="screen">
       <header class="topbar">
         <div class="coins"><b class="coin"></b><span id="coinCount">0</span></div>
-        <button id="settingsBtn" class="iconbtn" type="button" aria-label="Settings">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-        </button>
+        <div class="tb-right">
+          <button id="howBtn" class="gbtn sq blue" type="button" aria-label="How to play"><svg><use href="#i-help"/></svg></button>
+          <button id="settingsBtn" class="gbtn sq blue" type="button" aria-label="Settings"><svg><use href="#i-gear"/></svg></button>
+        </div>
       </header>
-      <div class="brand">
-        <h1>LASER <span>CAGE</span></h1>
-        <p>Hide. Aim. Reveal.</p>
-      </div>
-      <div class="sheet">
-        <div class="modes">
-          <button class="mode" type="button" data-mode="bots">
-            <h3>Vs Bots</h3><p>You against computer players. Works offline.</p>
-          </button>
-          <button class="mode" type="button" data-mode="pp">
-            <h3>Pass &amp; Play</h3><p>2–4 friends on one phone.</p>
-          </button>
-          <button class="mode locked" type="button" data-mode="online">
-            <span class="tag">Soon</span><h3>Online</h3><p>Players from other countries.</p>
-          </button>
-        </div>
-        <div class="row2">
-          <button id="shopBtn" class="btn ghost" type="button">Shop</button>
-          <button id="howBtn" class="btn ghost" type="button">How to play</button>
-        </div>
-        <p id="statLine" class="statline"></p>
-      </div>
-    </section>
+      <div class="logo" aria-label="Laser Cage"><span class="l1">LASER</span><span class="l2">CAGE</span></div>
+      <p id="statLine" class="statline"></p>
 
-    <!-- Match setup -->
-    <section id="setup" class="screen" hidden>
-      <header class="topbar"><button class="iconbtn back" type="button" aria-label="Back">‹</button><span class="title" id="setupTitle">Vs Bots</span><span></span></header>
-      <div class="sheet">
-        <div id="setBots" class="group">
-          <span class="label">Bots</span><div class="seg" id="segBots"></div>
-          <span class="label">Difficulty</span><div class="seg" id="segDiff"></div>
+      <div class="dock">
+        <div class="panel matchset">
+          <div class="setrow">
+            <span class="setlabel"><svg><use href="#i-bot"/></svg>BOTS</span>
+            <div class="stepper">
+              <button id="botsMinus" class="gbtn sq blue small" type="button" aria-label="Fewer bots">−</button>
+              <b id="botCount">3</b>
+              <button id="botsPlus" class="gbtn sq blue small" type="button" aria-label="More bots">+</button>
+            </div>
+          </div>
+          <div class="seg" id="segDiff"></div>
         </div>
-        <div id="setPP" class="group" hidden>
-          <span class="label">Players</span><div class="seg" id="segPP"></div>
-          <p class="note">Each player plans their move in secret, then you all reveal together. Pass the phone when the screen asks.</p>
+        <div class="dockrow">
+          <button id="shopBtn" class="gbtn tile purple" type="button"><svg><use href="#i-bag"/></svg><span>SHOP</span></button>
+          <button id="playBtn" class="gbtn yellow play" type="button"><span class="big">PLAY</span><span class="sub">VS BOTS</span></button>
+          <button id="onlineBtn" class="gbtn tile locked" type="button"><svg><use href="#i-globe"/></svg><span>ONLINE</span><em>SOON</em></button>
         </div>
-        <button id="playBtn" class="btn hot big" type="button">PLAY</button>
       </div>
     </section>
 
     <!-- Shop -->
     <section id="shop" class="screen" hidden>
-      <header class="topbar"><button class="iconbtn back" type="button" aria-label="Back">‹</button><span class="title">Shop</span><div class="coins"><b class="coin"></b><span class="coinCount">0</span></div></header>
-      <div class="sheet tall">
+      <header class="topbar">
+        <button class="gbtn sq blue back" type="button" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+        <h2 class="ribbon">SHOP</h2>
+        <div class="coins"><b class="coin"></b><span class="coinCount">0</span></div>
+      </header>
+      <div class="panel shoppanel">
         <div class="tabs" id="shopTabs"></div>
         <div class="grid" id="shopGrid"></div>
-        <button id="shopAction" class="btn hot" type="button">Equipped</button>
+        <button id="shopAction" class="gbtn green wide" type="button">EQUIPPED</button>
       </div>
     </section>
 
     <!-- Settings -->
     <section id="settings" class="screen" hidden>
-      <header class="topbar"><button class="iconbtn back" type="button" aria-label="Back">‹</button><span class="title">Settings</span><span></span></header>
-      <div class="sheet">
-        <label class="toggle"><span>Sound</span><input type="checkbox" id="optSound" /></label>
-        <label class="toggle"><span>Vibration</span><input type="checkbox" id="optVibe" /></label>
-        <label class="toggle"><span>Aim stick on the left</span><input type="checkbox" id="optSwap" /></label>
-        <div class="group"><span class="label">Graphics</span><div class="seg" id="segGfx"></div>
-          <p class="note">Auto lowers the graphics if your phone struggles. Low is the smoothest.</p></div>
-        <p class="note">Laser Cage v0.1 · offline build</p>
+      <header class="topbar">
+        <button class="gbtn sq blue back" type="button" aria-label="Back"><svg><use href="#i-back"/></svg></button>
+        <h2 class="ribbon">SETTINGS</h2>
+        <span class="spacer"></span>
+      </header>
+      <div class="panel setpanel">
+        <label class="toggle"><span>Sound</span><input type="checkbox" id="optSound" /><i></i></label>
+        <label class="toggle"><span>Vibration</span><input type="checkbox" id="optVibe" /><i></i></label>
+        <label class="toggle"><span>Aim stick on the left</span><input type="checkbox" id="optSwap" /><i></i></label>
+        <div class="setgroup"><span class="setlabel">GRAPHICS</span><div class="seg" id="segGfx"></div>
+          <p class="fine">Auto switches to Low if your phone struggles. Low is the smoothest.</p></div>
+        <p class="fine center">Laser Cage v0.2</p>
       </div>
     </section>
 
     <!-- How to play -->
-    <section id="howto" class="screen dim" hidden>
-      <div class="card">
-        <span class="label">How to play</span>
+    <section id="howto" class="screen modal" hidden>
+      <div class="panel card">
+        <h2 class="ribbon">HOW TO PLAY</h2>
         <ol class="steps">
-          <li><b>Remember.</b> At the start of each round you see everyone for a moment.</li>
-          <li><b>Hide &amp; aim.</b> Then everyone vanishes. Move somewhere new and aim where you think someone went.</li>
-          <li><b>Reveal.</b> At the lock, everyone appears and the lasers fire. Anyone touching a laser is out.</li>
-          <li><b>Drop.</b> The pink outer ring falls after every round. Don't be standing on it.</li>
+          <li><b>1</b><div><strong>REMEMBER</strong>At the start of each round you see everyone for a moment.</div></li>
+          <li><b>2</b><div><strong>HIDE &amp; AIM</strong>Everyone vanishes. Move somewhere new and aim where you think someone went.</div></li>
+          <li><b>3</b><div><strong>REVEAL</strong>At the lock everyone appears and the lasers fire. Touch a laser and you're out.</div></li>
+          <li><b>4</b><div><strong>DROP</strong>The pink outer ring falls after every round. Don't stand on it.</div></li>
         </ol>
-        <p class="note">Use the MOVE stick (or tap the floor) to walk and the AIM stick to aim. On a computer, use WASD and the mouse.</p>
-        <button id="howOk" class="btn hot" type="button">GOT IT</button>
-      </div>
-    </section>
-
-    <!-- Pass & play handoff -->
-    <section id="handoff" class="screen dim" hidden>
-      <div class="card">
-        <span class="label">Pass the phone</span>
-        <h2 id="handName" class="bigname">P1</h2>
-        <p class="note">Everyone else, look away. You'll only see yourself. Pick where to move and where to aim, then press Lock in.</p>
-        <button id="readyBtn" class="btn hot" type="button">I'M READY</button>
+        <p class="fine">Left stick moves, right stick aims. You can swap them in Settings.</p>
+        <button id="howOk" class="gbtn yellow wide" type="button">GOT IT!</button>
       </div>
     </section>
 
     <!-- Pause -->
-    <section id="pause" class="screen dim" hidden>
-      <div class="card">
-        <span class="label">Paused</span>
+    <section id="pause" class="screen modal" hidden>
+      <div class="panel card">
+        <h2 class="ribbon">PAUSED</h2>
         <div class="row2">
-          <button id="quitBtn" class="btn ghost" type="button">Quit</button>
-          <button id="resumeBtn" class="btn hot" type="button">RESUME</button>
+          <button id="quitBtn" class="gbtn red" type="button">QUIT</button>
+          <button id="resumeBtn" class="gbtn green" type="button">RESUME</button>
         </div>
       </div>
     </section>
 
     <!-- Results -->
-    <section id="result" class="screen dim" hidden>
-      <div class="card">
-        <span class="label" id="resLabel">Match over</span>
-        <h2 id="resTitle" class="bigname">Victory</h2>
-        <p id="resSub" class="note"></p>
+    <section id="result" class="screen modal" hidden>
+      <div class="panel card">
+        <h2 id="resTitle" class="ribbon">VICTORY!</h2>
+        <span class="fine center" id="resLabel">VS BOTS</span>
+        <p id="resSub" class="ressub"></p>
         <div class="stats">
-          <div class="stat"><b id="stPlace">1st</b><span>Place</span></div>
-          <div class="stat"><b id="stKills">0</b><span>Hits</span></div>
-          <div class="stat"><b id="stCoins">+0</b><span>Coins</span></div>
+          <div class="stat"><b id="stPlace">1st</b><span>PLACE</span></div>
+          <div class="stat"><b id="stKills">0</b><span>HITS</span></div>
+          <div class="stat gold"><b id="stCoins">+0</b><span>COINS</span></div>
         </div>
         <div class="row2">
-          <button id="homeBtn" class="btn ghost" type="button">Home</button>
-          <button id="againBtn" class="btn hot" type="button">REMATCH</button>
+          <button id="homeBtn" class="gbtn blue" type="button">HOME</button>
+          <button id="againBtn" class="gbtn yellow" type="button">PLAY AGAIN</button>
         </div>
       </div>
     </section>

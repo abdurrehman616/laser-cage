@@ -10,15 +10,12 @@ export const ARENA = {
 export const PLAYER = {
   radius: 0.4,
   speed: 3.3,          // units per second while hiding
-  planReach: 2.6,      // pass & play: max distance you can plan to move
 };
 
 export const TIMING = {
   intro: 1.6,       // everyone visible: memorise positions
   hideFirst: 6.5,   // round 1 is a bit longer
   hide: 5,
-  plan: 12,         // pass & play, per player
-  reveal: 1.5,      // pass & play: everyone walks to their planned spot
   lock: 1.0,
   fire: 0.9,
   drop: 1.4,
@@ -33,7 +30,6 @@ export const REWARDS = {
   perRoundSurvived: 10,
   perKill: 15,
   win: 60,
-  passAndPlay: 15,
   perMatch: 5,       // just for playing
 };
 
@@ -100,6 +96,6 @@ export const DEFAULT_EQUIP: Record<Slot, string> = {
 
 export const item = (id: string) => ITEMS.find(i => i.id === id)!;
 
-// Looks for computer players and extra pass & play seats
+// Looks for computer players
 export const NPC_OUTFITS = ['fit_classic', 'fit_desert', 'fit_ninja', 'fit_cricket'];
 export const HAIR_COLORS = ['#d8432a', '#e09a3a', '#3a2a20', '#f2d86c', '#7a4bd1', '#2fb3a5'];

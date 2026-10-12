@@ -16,8 +16,3 @@ for (let g = 0; g < 300; g++) {
   for (const p of m.players) if (!p.alive) hows[p.how!] = (hows[p.how!] || 0) + 1;
 }
 console.log({ overs, stuck, avgRounds: (rounds / overs).toFixed(2), draws, hows });
-// pass & play smoke test: everyone stays still and locks in
-const pp = new Match('pp', [0,1,2].map(i => ({ name: 'P' + i, color: '#0f0', look: { outfit: NPC_OUTFITS[0], hat: 'hat_none', hair: '#000' }, human: true })));
-pp.start(); let s = 0;
-while (pp.phase !== 'over' && s < 50000) { if (pp.phase === 'handoff') pp.beginPlan(); if (pp.phase === 'plan') { pp.setAim(Math.random()*6.28); pp.lockIn(); } pp.update(1/30); s++; }
-console.log('pp', pp.phase, 'rounds', pp.round, 'alive', pp.alive.length);

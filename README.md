@@ -4,8 +4,7 @@ Hide. Aim. Reveal. A party shooter where everyone vanishes while they aim, then 
 
 ## Modes
 - **Vs Bots**: 1–5 computer players, Easy / Normal / Hard. Works offline.
-- **Pass & Play**: 2–4 friends on one phone. Each player plans in secret.
-- **Online**: planned (see roadmap).
+- **Online**: coming soon (see roadmap).
 
 ## Run it on your computer
 Needs Node.js 20+.

@@ -2,5 +2,5 @@
   "appId": "com.lasercage.game",
   "appName": "Laser Cage",
   "webDir": "dist",
-  "android": { "backgroundColor": "#0a1a18" }
+  "android": { "backgroundColor": "#14205a" }
 }

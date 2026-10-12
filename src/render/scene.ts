@@ -1,6 +1,6 @@
 // Three.js view of a match. Reads Match state every frame; never changes the rules.
 import * as THREE from 'three';
-import { ARENA, PLAYER, item } from '../config';
+import { ARENA, item } from '../config';
 import { cageCorners } from '../game/arena';
 import type { Match, Player } from '../game/match';
 import type { Look } from '../game/match';
@@ -46,7 +46,6 @@ export class ArenaView {
   private particles: { m: THREE.Mesh; v: THREE.Vector3; life: number }[] = [];
   private marker: THREE.Mesh;
   private selRing: THREE.Mesh;
-  private reachRing: THREE.LineLoop;
   private labels: HTMLElement;
   private preview: Vis | null = null;
   private time = 0;
@@ -93,8 +92,8 @@ export class ArenaView {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
 
-    this.scene.background = new THREE.Color('#0b1d1a');
-    this.scene.fog = new THREE.Fog('#0b1d1a', 70, 140);
+    this.scene.background = new THREE.Color('#14205a');
+    this.scene.fog = new THREE.Fog('#14205a', 70, 140);
 
     const hemi = new THREE.HemisphereLight('#cfe8ff', '#1d3a2c', 1.1); this.scene.add(hemi);
     const sun = new THREE.DirectionalLight('#fff3df', 2.0);
@@ -112,10 +111,6 @@ export class ArenaView {
     this.marker.rotation.x = -Math.PI / 2; this.marker.position.y = 0.02; this.scene.add(this.marker);
     this.selRing = new THREE.Mesh(new THREE.RingGeometry(0.52, 0.62, 36), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, depthWrite: false }));
     this.selRing.rotation.x = -Math.PI / 2; this.selRing.position.y = 0.02; this.scene.add(this.selRing);
-    const pts: THREE.Vector3[] = [];
-    for (let i = 0; i < 64; i++) { const a = (i / 64) * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * PLAYER.planReach, 0.03, Math.sin(a) * PLAYER.planReach)); }
-    this.reachRing = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineDashedMaterial({ color: '#ffb547', dashSize: 0.25, gapSize: 0.18, transparent: true, opacity: 0.8 }));
-    this.reachRing.computeLineDistances(); this.scene.add(this.reachRing);
 
     this.setFloor('floor_steel');
     this.resize();
@@ -405,12 +400,10 @@ export class ArenaView {
     const c = m?.controlled();
     this.selRing.visible = !!c;
     this.marker.visible = !!(c && c.target);
-    this.reachRing.visible = !!(c && m?.mode === 'pp');
     if (c) {
       this.selRing.position.set(c.x, 0.02, c.z);
       (this.selRing.material as THREE.MeshBasicMaterial).color.set(c.color);
       if (c.target) this.marker.position.set(c.target.x, 0.03, c.target.z);
-      this.reachRing.position.set(c.x, 0, c.z);
     }
 
     // shots fade
@@ -435,7 +428,7 @@ export class ArenaView {
     const k = 1 - Math.exp(-dt * 3.5);
     if (this.shot === 0) { this.camPos.lerp(this.baseCam, k); this.camLook.lerp(this.baseLook, k); }
     else {
-      const dist = this.shot === 2 ? (portrait ? 8.5 : 6.5) : (portrait ? 6.8 : 5.5), drop = this.shot === 2 ? (portrait ? 2.2 : 1.2) : (portrait ? 1.0 : 0.4);
+      const dist = this.shot === 2 ? (portrait ? 8.5 : 6.5) : (portrait ? 7.8 : 5.8), drop = this.shot === 2 ? (portrait ? 2.2 : 1.2) : (portrait ? 0.35 : 0.2);
       const sway = Math.sin(this.time * 0.25) * 1.2;
       this.camPos.lerp(this.tA.set(sway, 3.6, dist), k);
       this.camLook.lerp(this.tB.set(0, 0.8 - drop, 0), k);
@@ -456,7 +449,6 @@ export class ArenaView {
     // body
     rig.root.visible = !hidden && !(dead && since > 1.6);
     rig.root.position.set(p.x, 0, p.z);
-    // pass & play: others keep facing their old aim while one person plans (aim is secret)
     rig.root.rotation.y = -p.aim;
     const moved = Math.hypot(p.x - v.lastX, p.z - v.lastZ);
     v.lastX = p.x; v.lastZ = p.z;
@@ -485,19 +477,16 @@ export class ArenaView {
     let show = !hidden && p.alive;
     if (m && !isPreview) {
       const ph = m.phase;
-      if (m.mode === 'bots') show &&= ph === 'intro' || ph === 'hide' || ph === 'lock';
-      else show &&= ph === 'intro' || ph === 'plan' || ph === 'reveal' || ph === 'lock';
+      show &&= ph === 'intro' || ph === 'hide' || ph === 'lock';
     }
     v.beam.visible = v.glow.visible = v.dot.visible = show;
     if (show) {
       rig.root.updateMatrixWorld(true);
       const from = rig.gunTip.getWorldPosition(this.tA);
-      // pass & play planning: the laser starts from where you plan to stand
-      const planning = m && m.mode === 'pp' && m.phase === 'plan' && m.cur === p && p.target;
-      if (planning) from.set(p.target!.x + Math.cos(p.aim) * 0.96, from.y, p.target!.z + Math.sin(p.aim) * 0.96);
+
       let ex: number, ez: number;
       if (m && !isPreview) {
-        const e = m.laserEnd(p, ghost || m.phase === 'intro', planning ? p.target! : undefined);
+        const e = m.laserEnd(p, ghost || m.phase === 'intro');
         ex = e.x; ez = e.z;
       } else { ex = p.x + Math.cos(p.aim) * 6; ez = p.z + Math.sin(p.aim) * 6; }
       const len = Math.max(0.01, Math.hypot(ex - from.x, ez - from.z));
@@ -517,7 +506,7 @@ export class ArenaView {
       if (show) {
         const s = this.worldToScreen(p.x, 1.95, p.z);
         v.label.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -100%)`;
-        v.label.classList.toggle('me', !!m && ((m.mode === 'bots' && p.id === 0) || m.cur === p));
+        v.label.classList.toggle('me', p.human);
       }
     }
   }
