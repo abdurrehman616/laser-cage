@@ -1,6 +1,8 @@
-# Builds an installable Android test app (APK) on every push to main.
-# Download it from the "Releases" section of the GitHub repo, on your phone.
-name: Build Android APK
+# On every push to main this builds:
+#  - LaserCage-N.apk  : a test build you can install directly on a phone
+#  - LaserCage-N.aab  : the signed release file you upload to Google Play (needs the 4 signing secrets)
+# Both are attached to a new GitHub Release.
+name: Build Android
 on:
   push:
     branches: [main]
@@ -8,26 +10,48 @@ on:
 permissions:
   contents: write
 jobs:
-  apk:
+  android:
     runs-on: ubuntu-24.04   # comes with the Android SDK already installed
+    env:
+      VERSION_CODE: ${{ github.run_number }}
+      HAS_KEY: ${{ secrets.KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm }
       - uses: actions/setup-java@v5
-        with: { distribution: temurin, java-version: 17 }
+        with: { distribution: temurin, java-version: 21 }
+      - name: Version name from package.json
+        run: echo "VERSION_NAME=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
       - run: npm ci
       - run: npm run build
       - run: npx cap sync android
-      - name: Build debug APK
+
+      - name: Test APK
         working-directory: android
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk LaserCage-${{ github.run_number }}.apk
+
+      - name: Signed release bundle for Google Play
+        if: ${{ env.HAS_KEY == 'true' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          export KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          cd android && ./gradlew bundleRelease --no-daemon
+          cp app/build/outputs/bundle/release/app-release.aab ../LaserCage-${{ github.run_number }}.aab
+
       - uses: actions/upload-artifact@v4
-        with: { name: LaserCage-apk, path: LaserCage-*.apk }
+        with: { name: LaserCage-build, path: "LaserCage-*" }
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
-          name: Test build ${{ github.run_number }}
-          body: Debug build for testing. Open this page on your Android phone and tap the .apk file to install.
-          files: LaserCage-*.apk
+          name: Build ${{ github.run_number }} (v${{ env.VERSION_NAME }})
+          body: |
+            **.apk**: install directly on an Android phone for testing.
+            **.aab**: upload this to Google Play Console (Test and release → Closed testing → Create new release).
+          files: LaserCage-*

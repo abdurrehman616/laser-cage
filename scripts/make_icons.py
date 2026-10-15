@@ -2,7 +2,7 @@
 import math, glob, os, sys
 from PIL import Image, ImageDraw, ImageFilter
 ROOT = sys.argv[1]
-BG = (10, 26, 24, 255); INK = (233, 238, 241, 255); HOT = (255, 77, 109, 255)
+BG = (20, 32, 90, 255); INK = (233, 238, 241, 255); HOT = (255, 77, 109, 255)
 
 def art(size, scale=1.0, bg=True):
     S = size * 4
