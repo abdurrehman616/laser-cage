@@ -32,18 +32,22 @@ jobs:
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - run: cp android/app/build/outputs/apk/debug/app-debug.apk LaserCage-${{ github.run_number }}.apk
 
-      - name: Signed release bundle for Google Play
-        if: ${{ env.HAS_KEY == 'true' }}
+      - name: Release bundle for Google Play (signed when the secrets are set)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
-          export KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+          if [ "$HAS_KEY" = "true" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            export KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
+            NAME=LaserCage-${{ github.run_number }}.aab
+          else
+            NAME=LaserCage-${{ github.run_number }}-unsigned.aab
+          fi
           cd android && ./gradlew bundleRelease --no-daemon
-          cp app/build/outputs/bundle/release/app-release.aab ../LaserCage-${{ github.run_number }}.aab
+          cp app/build/outputs/bundle/release/app-release.aab ../$NAME
 
       - uses: actions/upload-artifact@v4
         with: { name: LaserCage-build, path: "LaserCage-*" }
