@@ -4,6 +4,10 @@ import { Capacitor } from '@capacitor/core';
 import { ADS, EXCHANGE, ITEMS, NOADS_DAILY_GEMS, PRODUCTS, Product, SPIN, SPIN_AD_EXTRA, SpinSlice, STARTER } from './config';
 import { profile, save, grant } from './save';
 import { today } from './progress';
+import { FIREBASE } from './config';
+import { firebaseOn } from './firebase';
+import { verifyPurchaseOnServer } from './cloud';
+import { track } from './analytics';
 
 const native = Capacitor.isNativePlatform();
 
@@ -61,6 +65,7 @@ export async function rewardedAd(webFallback: () => Promise<boolean>): Promise<b
     preloadAd();
   }
   if (ok) { adsToday().count++; save(); }
+  track(ok ? 'ad_reward' : 'ad_failed', { native });
   return ok;
 }
 
@@ -114,7 +119,14 @@ export async function buyProduct(p: Product, webConfirm: () => Promise<boolean>)
     if (t.purchaseState && t.purchaseState !== '1') return { ok: false, msg: 'Your payment is pending. Your items arrive once it completes.' };
     const token = t.purchaseToken ?? t.transactionId;
     if (token && profile.tokens.includes(token)) return { ok: false, msg: 'Already received.' };
+    // ask our server to confirm the purchase with Google (once Firebase is set up)
+    if (token && firebaseOn() && FIREBASE.verifyPurchases) {
+      const v = await verifyPurchaseOnServer(p.id, token);
+      track('iap_verify', { product: p.id, result: v });
+      if (v === 'invalid') return { ok: false, msg: 'This purchase couldn\'t be verified with Google Play.' };
+    }
     if (token) { profile.tokens.push(token); if (profile.tokens.length > 200) profile.tokens.shift(); }
+    track('iap_purchase', { product: p.id });
     return { ok: true, msg: grantProduct(p) };
   } catch (e) {
     const m = String((e as Error)?.message ?? e).toLowerCase();

@@ -74,8 +74,23 @@ function load(): Profile {
 
 export const profile: Profile = load();
 
+const savedListeners: (() => void)[] = [];
+/** Run something after every save (used for the cloud backup). */
+export const onSaved = (f: () => void) => { savedListeners.push(f); };
+
 export function save() {
   try { localStorage.setItem(KEY, JSON.stringify(profile)); } catch { /* storage unavailable */ }
+  savedListeners.forEach(f => f());
+}
+
+/** Swap in a profile restored from the cloud, filling any fields an older save didn't have. */
+export function replaceProfile(p: Partial<Profile>) {
+  const base = fresh();
+  const merged = { ...base, ...p, equip: { ...base.equip, ...(p.equip || {}) } } as Profile;
+  for (const id of base.owned) if (!merged.owned.includes(id)) merged.owned.push(id);
+  for (const k of Object.keys(profile) as (keyof Profile)[]) delete (profile as unknown as Record<string, unknown>)[k];
+  Object.assign(profile, merged);
+  try { localStorage.setItem(KEY, JSON.stringify(profile)); } catch { /* ignore */ }
 }
 
 export function buy(id: string): 'ok' | 'owned' | 'poor' {

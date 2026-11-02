@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Each player can only read and write their own save.
+    match /players/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && request.resource.data.keys().hasOnly(['profile', 'score', 'appVersion', 'updatedAt']);
+    }
+    // Verified purchases are written only by the server (Cloud Functions bypass these rules).
+    match /purchases/{token} {
+      allow read, write: if false;
+    }
+  }
+}

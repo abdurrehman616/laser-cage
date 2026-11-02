@@ -6,6 +6,9 @@ import { addCoins, buy, equip, profile, save } from './save';
 import { buzz, playMusic, refreshMusic, sfx, unlockAudio } from './audio';
 import { addXp, arenaUnlocked, claimDaily, claimMission, dailyAvailable, matchXp, missions, missionsReady, nextUnlock, trackMatch } from './progress';
 import { EXCHANGE, PRODUCTS, SPIN, NOADS_DAILY_GEMS, STARTER } from './config';
+import { track, diagnostics, recentEvents } from './analytics';
+import { accountId, cloudState, initCloud, onCloudState } from './cloud';
+import { APP_VERSION } from './config';
 import { adSpinsLeft, adsLeftToday, buyProduct, exchange, freeSpinReady, initAds, initStore, noAdsDaily, priceOf, privacyOptionsRequired, restorePurchases, rewardedAd, showPrivacyOptions, spin } from './monetize';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -131,7 +134,24 @@ $('settingsBtn').onclick = () => {
   ($('optMusic') as HTMLInputElement).checked = profile.music; ($('optSwap') as HTMLInputElement).checked = profile.swapSticks;
   seg('segGfx', ['auto', 'high', 'low'], () => profile.gfx, v => { profile.gfx = v; save(); applyGfx(); }, ['AUTO', 'HIGH', 'LOW']);
   $('privacyBtn').hidden = !privacyOptionsRequired;
+  refreshAccount();
   show('settings');
+};
+function refreshAccount() {
+  const st = cloudState();
+  $('acctLine').textContent = st === 'off' ? 'Guest. Your progress is saved on this phone. Cloud backup is coming soon.'
+    : st === 'synced' ? 'Guest. Progress is backed up to the cloud.'
+    : st === 'connecting' ? 'Connecting to cloud backup…' : 'Offline. Progress will back up when you\'re online.';
+  accountId().then(id => { if (id && screen === 'settings') $('acctLine').textContent += ` ID: ${id.slice(0, 8).toUpperCase()}`; });
+}
+onCloudState(() => { if (screen === 'settings') refreshAccount(); });
+$('versionLine').textContent = `Laser Cage v${APP_VERSION}`;
+$('reportBtn').onclick = async () => {
+  sfx.click();
+  const text = diagnostics({ level: profile.level, matches: profile.stats.matches, cloud: cloudState() });
+  try { await navigator.clipboard.writeText(text); toast('Report copied. Paste it in an email to codespacelab9@gmail.com'); }
+  catch { toast('Email codespacelab9@gmail.com and describe the problem'); }
+  track('bug_report');
 };
 $('restoreBtn').onclick = async () => { sfx.click(); toast(await restorePurchases()); refreshHome(); };
 $('privacyBtn').onclick = () => { sfx.click(); showPrivacyOptions(); };
@@ -160,6 +180,7 @@ function openDaily() {
 $('dailyBtn').onclick = () => { unlockAudio(); sfx.click(); openDaily(); };
 $('dailyClaim').onclick = () => {
   const c = claimDaily(); if (!c) return;
+  track('daily_claim', { day: profile.daily.streak, coins: c });
   sfx.buy(); buzz(40); toast(`+${c} COINS!`);
   openDaily(); refreshHome();
 };
@@ -177,7 +198,7 @@ function openMissions() {
     b.className = 'gbtn ' + (m.claimed ? 'locked' : doneM ? 'green' : 'blue');
     b.disabled = m.claimed || !doneM;
     b.innerHTML = m.claimed ? 'DONE' : `<b class="coin"></b>${m.def.reward}`;
-    b.onclick = () => { const c = claimMission(m.id); if (c) { sfx.buy(); buzz(30); toast(`+${c} COINS!`); openMissions(); refreshHome(); } };
+    b.onclick = () => { const c = claimMission(m.id); if (c) { track('mission_claim', { mission: m.id, coins: c }); sfx.buy(); buzz(30); toast(`+${c} COINS!`); openMissions(); refreshHome(); } };
     row.appendChild(b); list.appendChild(row);
   }
   show('missions');
@@ -261,6 +282,7 @@ $('shopAction').onclick = () => {
     if (r === 'poor' && it.gems) { sfx.denied(); toast(`Need ${it.gems - profile.gems} more gems`); openShop('gems'); return; }
     if (r === 'poor') { sfx.denied(); toast(`Need ${it.price - profile.coins} more coins. Win matches to earn them!`); return; }
     sfx.buy(); buzz(30); toast(`${it.name.toUpperCase()} UNLOCKED!`);
+    track('shop_buy', { item: it.id, currency: it.gems ? 'gems' : 'coins', cost: it.gems ?? it.price });
   }
   renderShop(); applyPreview();
 };
@@ -358,6 +380,7 @@ $('spinGo').onclick = async () => {
     if (!(await watchAd())) { sfx.denied(); toast(adsLeftToday() ? 'The ad didn\'t finish, so no spin this time.' : 'No more ads today. Come back tomorrow!'); return; }
   }
   const r = spin(viaAd);
+  track('spin', { via_ad: viaAd, prize: r.slice.label });
   spinning = true; updateSpinBtn(); sfx.click();
   const n = SPIN.length, slice = 360 / n;
   // land the chosen slice under the top pointer, after a few full turns
@@ -412,6 +435,7 @@ function startMatch(tutorial: boolean) {
   match = new Match('bots', buildSeats(tutorial ? 2 : setup.bots), { diff: tutorial ? 'easy' : setup.diff, arena: ar, tutorial });
   const m = match;
   coach.step = 0; coach.aimed = false;
+  track('match_start', { arena: ar.id, bots: m.players.length - 1, diff: m.diff, tutorial });
   view.setArena(ar);
   view.setMatch(m); view.setFloor(profile.equip.floor);
   m.on(e => {
@@ -495,7 +519,7 @@ $('doubleBtn').onclick = async () => {
   const db = $('doubleBtn') as HTMLButtonElement; db.disabled = true;
   const ok = await watchAd();
   if (!ok) { db.disabled = false; sfx.denied(); toast('The ad didn\'t finish, so no bonus this time.'); return; }
-  doubled = true; addCoins(lastCoins); sfx.buy(); buzz([40, 40, 80]);
+  doubled = true; addCoins(lastCoins); track('double_coins', { coins: lastCoins }); sfx.buy(); buzz([40, 40, 80]);
   $('stCoins').textContent = '+' + lastCoins * 2; db.classList.add('used'); $('doubleText').textContent = 'COINS DOUBLED!';
 };
 
@@ -507,7 +531,7 @@ function results(m: Match) {
   const won = me.alive && m.alive.length === 1;
   let coins = Math.round((REWARDS.perMatch + me.survived * REWARDS.perRoundSurvived + kills * REWARDS.perKill + (won ? REWARDS.win : 0)) * diffMult[m.diff]);
   const firstTime = m.tutorial && !profile.tutorialDone;
-  if (firstTime) { coins += 100; profile.tutorialDone = true; }
+  if (firstTime) { coins += 100; profile.tutorialDone = true; track('tutorial_complete', { won }); }
   const sub = firstTime ? 'Tutorial complete! Here are 100 bonus coins.'
     : won ? `Last one standing out of ${m.players.length}!`
     : me.how === 'fell' ? 'You were on the outer ring when it dropped.'
@@ -521,6 +545,8 @@ function results(m: Match) {
   const startFrac = profile.level >= MAX_LEVEL ? 1 : profile.xp / xpToNext(profile.level);
   const xp = matchXp({ rounds: me.survived, kills, won, diff: m.diff });
   const ups = addXp(xp);
+  track('match_end', { arena: m.arena.id, diff: m.diff, bots: m.players.length - 1, won, place, kills, rounds: m.round, coins, xp });
+  for (const u of ups) track('level_up', { level: u.level });
   const done = m.tutorial ? [] : trackMatch({ won, kills, rounds: me.survived, diff: m.diff, reachedFinal: m.reachedFinal, bots: m.players.length - 1 });
 
   const t = $('resTitle'); t.textContent = won ? 'VICTORY!' : 'ELIMINATED'; t.className = 'ribbon ' + (won ? 'win' : 'lose');
@@ -670,8 +696,10 @@ function frame(now: number) {
 show('home');
 requestAnimationFrame(frame);
 initAds();
+track('app_open', { level: profile.level, matches: profile.stats.matches });
+initCloud(() => { refreshHome(); toast('Progress restored from the cloud!'); });
 initStore(() => { if (screen === 'shop') renderShop(); refreshHome(); });
 { const g = noAdsDaily(); if (g) setTimeout(() => toast(`NO-ADS PASS: +${g} GEMS TODAY`), 1200); }
 
 // debug hook for automated tests
-(window as unknown as { __lc: unknown }).__lc = { get match() { return match; }, startMatch, setup, profile, show, openDaily, openMissions, openSpin, openShop, refreshHome };
+(window as unknown as { __lc: unknown }).__lc = { get match() { return match; }, startMatch, setup, profile, show, openDaily, openMissions, openSpin, openShop, refreshHome, recentEvents };

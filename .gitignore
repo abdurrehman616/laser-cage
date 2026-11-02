@@ -8,3 +8,5 @@ android/local.properties
 *.keystore
 *.jks
 .DS_Store
+server/functions/node_modules/
+server/functions/lib/

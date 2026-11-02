@@ -212,3 +212,22 @@ export const SPIN: SpinSlice[] = [
   { label: '40',   gems: 40,   weight: 5,  color: '#0b1240' },
 ];
 export const SPIN_AD_EXTRA = 2;   // extra spins per day by watching an ad
+
+// ---------- Firebase (Sprint 4) ----------
+// Off until the Firebase project exists. Paste the Web app config from
+// Firebase console → Project settings → Your apps → Web app, then set enabled: true.
+export const FIREBASE = {
+  enabled: false,
+  config: {
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: '',
+    measurementId: '',
+  },
+  functionsRegion: 'asia-south1',   // Mumbai, closest to Pakistan
+  verifyPurchases: true,            // check Play purchases on the server once the function is deployed
+};
+export const APP_VERSION = '0.5.0';
