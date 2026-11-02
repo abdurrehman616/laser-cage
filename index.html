@@ -21,6 +21,8 @@
     <symbol id="i-list" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h4v4H4zm6 1h10v2H10zM4 10h4v4H4zm6 1h10v2H10zM4 16h4v4H4zm6 1h10v2H10z"/></symbol>
     <symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l3 6.6 7.2.7-5.4 4.9 1.6 7.1L12 17.6 5.6 21.3l1.6-7.1L1.8 9.3 9 8.6z"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10V8a5 5 0 0110 0v2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h6V8a3 3 0 00-6 0v2z"/></symbol>
+ <symbol id="i-wheel" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 110 20 10 10 0 010-20zm1 2.1V11h6.9A8 8 0 0013 4.1zM11 4.1A8 8 0 004.1 11H11V4.1zM4.1 13A8 8 0 0011 19.9V13H4.1zm8.9 6.9a8 8 0 006.9-6.9H13v6.9z"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4v16l13-8z"/></symbol>
     <symbol id="i-left" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 3.5L7 12l8.5 8.5 2.1-2.1L11.2 12l6.4-6.4z"/></symbol>
     <symbol id="i-right" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 3.5L17 12l-8.5 8.5-2.1-2.1L12.8 12 6.4 5.6z"/></symbol>
   </svg>
@@ -51,6 +53,7 @@
         <div class="tb-left">
           <div class="lvl" aria-label="Level"><b class="lvlstar"><svg><use href="#i-star"/></svg><span id="lvlNum">1</span></b><span class="xpbar"><i id="xpFill"></i></span></div>
           <div class="coins"><b class="coin"></b><span id="coinCount">0</span></div>
+          <button class="coins gems gemPill" type="button" aria-label="Gems"><b class="gem"></b><span class="gemCount">0</span></button>
         </div>
         <div class="tb-right">
           <button id="howBtn" class="gbtn sq blue" type="button" aria-label="How to play"><svg><use href="#i-help"/></svg></button>
@@ -61,6 +64,7 @@
       <p id="statLine" class="statline"></p>
       <div class="sidebtns">
         <button id="dailyBtn" class="gbtn sq green side" type="button" aria-label="Daily reward"><svg><use href="#i-gift"/></svg><em class="dot" id="dailyDot" hidden>!</em></button>
+ <button id="spinBtnSide" class="gbtn sq yellow side" type="button" aria-label="Daily spin"><svg><use href="#i-wheel"/></svg><em class="dot" id="spinDot" hidden>!</em></button>
         <button id="missionsBtn" class="gbtn sq purple side" type="button" aria-label="Daily missions"><svg><use href="#i-list"/></svg><em class="dot" id="missionDot" hidden>0</em></button>
       </div>
 
@@ -95,11 +99,12 @@
       <header class="topbar">
         <button class="gbtn sq blue back" type="button" aria-label="Back"><svg><use href="#i-back"/></svg></button>
         <h2 class="ribbon">SHOP</h2>
-        <div class="coins"><b class="coin"></b><span class="coinCount">0</span></div>
+        <div class="tb-left"><div class="coins"><b class="coin"></b><span class="coinCount">0</span></div><div class="coins gems"><b class="gem"></b><span class="gemCount">0</span></div></div>
       </header>
       <div class="panel shoppanel">
         <div class="tabs" id="shopTabs"></div>
         <div class="grid" id="shopGrid"></div>
+        <div class="store" id="store" hidden></div>
         <button id="shopAction" class="gbtn green wide" type="button">EQUIPPED</button>
       </div>
     </section>
@@ -118,7 +123,11 @@
         <label class="toggle"><span>Aim stick on the left</span><input type="checkbox" id="optSwap" /><i></i></label>
         <div class="setgroup"><span class="setlabel">GRAPHICS</span><div class="seg" id="segGfx"></div>
           <p class="fine">Auto switches to Low if your phone struggles. Low is the smoothest.</p></div>
-        <p class="fine center">Laser Cage v0.3</p>
+        <div class="row2">
+          <button id="restoreBtn" class="gbtn blue" type="button">RESTORE PURCHASES</button>
+          <button id="privacyBtn" class="gbtn blue" type="button" hidden>AD PRIVACY</button>
+        </div>
+        <p class="fine center">Laser Cage v0.4</p>
       </div>
     </section>
 
@@ -159,6 +168,7 @@
           <div class="stat"><b id="stKills">0</b><span>HITS</span></div>
           <div class="stat gold"><b id="stCoins">+0</b><span>COINS</span></div>
         </div>
+        <button id="doubleBtn" class="gbtn green wide adbtn" type="button"><svg><use href="#i-play"/></svg><span id="doubleText">WATCH AD: DOUBLE COINS</span></button>
         <div class="xpblock">
           <div class="xprow"><span class="lvlstar small"><svg><use href="#i-star"/></svg><span id="resLvl">1</span></span><span class="xpbar big"><i id="resXpFill"></i></span><b id="resXp">+0 XP</b></div>
           <div id="levelUps"></div>
@@ -189,6 +199,35 @@
         <p class="fine center" id="missionReset">New missions every day</p>
         <div class="mlist" id="missionList"></div>
         <button id="missionsClose" class="gbtn blue wide" type="button">CLOSE</button>
+      </div>
+    </section>
+
+    <!-- Daily spin -->
+    <section id="spin" class="screen modal" hidden>
+      <div class="panel card">
+        <h2 class="ribbon">DAILY SPIN</h2>
+        <div class="wheelwrap"><canvas id="wheel" width="560" height="560"></canvas><b class="pointer"></b><b class="hub"></b></div>
+        <p id="spinResult" class="spinresult">&nbsp;</p>
+        <button id="spinGo" class="gbtn yellow wide" type="button">FREE SPIN</button>
+        <button id="spinClose" class="gbtn blue wide" type="button">CLOSE</button>
+      </div>
+    </section>
+
+    <!-- Browser test mode: stands in for a real ad / Play purchase (never shown in the Android app) -->
+    <section id="fakead" class="screen modal" hidden>
+      <div class="panel card testcard">
+        <span class="testtag">TEST MODE</span>
+        <h2 class="ribbon">AD PLAYING</h2>
+        <p class="fine center">In the Android app a real rewarded video plays here.</p>
+        <p class="bigcount" id="fakeadCount">3</p>
+      </div>
+    </section>
+    <section id="fakebuy" class="screen modal" hidden>
+      <div class="panel card testcard">
+        <span class="testtag">TEST MODE</span>
+        <h2 class="ribbon" id="fakebuyTitle">TEST PURCHASE</h2>
+        <p class="fine center">No real money. In the Android app, Google Play's payment sheet opens here.</p>
+        <div class="row2"><button id="fakebuyNo" class="gbtn red" type="button">CANCEL</button><button id="fakebuyYes" class="gbtn green" type="button">BUY</button></div>
       </div>
     </section>
 

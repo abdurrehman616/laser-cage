@@ -68,6 +68,7 @@ export interface Item {
   gun?: { body: string; glow?: string; metal?: number };
   fx?: FxStyle;
   dance?: DanceStyle;
+  gems?: number;          // VIP items are bought with gems instead of coins
   unlockLevel?: number;   // given free when you reach this level (or buy it earlier)
 }
 
@@ -79,42 +80,42 @@ export const ITEMS: Item[] = [
   { id: 'laser_ice',     slot: 'laser', name: 'Ice',     price: 200, color: '#7fb8ff' },
   { id: 'laser_plasma',  slot: 'laser', name: 'Plasma',  price: 500, color: '#e3a2ff' },
   { id: 'laser_solar',   slot: 'laser', name: 'Solar',   price: 800, color: '#fff27a' },
-  { id: 'laser_rainbow', slot: 'laser', name: 'Rainbow', price: 1500, color: '#ffffff', rainbow: true, premium: true },
+  { id: 'laser_rainbow', slot: 'laser', name: 'Rainbow', price: 0, gems: 150, color: '#ffffff', rainbow: true, premium: true },
   // Gun skins
   { id: 'gun_classic', slot: 'gun', name: 'Classic', price: 0,    gun: { body: '#14191e', metal: 0.5 } },
   { id: 'gun_camo',    slot: 'gun', name: 'Camo',    price: 300,  gun: { body: '#4d6b35', metal: 0.1 }, unlockLevel: 4 },
   { id: 'gun_candy',   slot: 'gun', name: 'Candy',   price: 400,  gun: { body: '#ff8fc8', metal: 0.2 } },
   { id: 'gun_neon',    slot: 'gun', name: 'Neon',    price: 700,  gun: { body: '#1a2a3a', glow: '#3ff3ff', metal: 0.3 } },
   { id: 'gun_gold',    slot: 'gun', name: 'Gold',    price: 1200, gun: { body: '#ffc93a', metal: 0.9 } },
-  { id: 'gun_dragon',  slot: 'gun', name: 'Dragon',  price: 1800, gun: { body: '#b3122a', glow: '#ffb000', metal: 0.6 }, premium: true },
+  { id: 'gun_dragon',  slot: 'gun', name: 'Dragon',  price: 0, gems: 200, gun: { body: '#b3122a', glow: '#ffb000', metal: 0.6 }, premium: true },
   // Outfits
   { id: 'fit_classic',   slot: 'outfit', name: 'Classic',   price: 0,    shirt: '#2f5fb3', pants: '#1f3554', trim: '#ffffff' },
   { id: 'fit_desert',    slot: 'outfit', name: 'Desert',    price: 300,  shirt: '#c79a5b', pants: '#6b5232', trim: '#3b2d1c' },
   { id: 'fit_ninja',     slot: 'outfit', name: 'Ninja',     price: 500,  shirt: '#1b1d22', pants: '#111216', trim: '#d6334f' },
   { id: 'fit_cricket',   slot: 'outfit', name: 'Cricket Whites', price: 600, shirt: '#f2f2ec', pants: '#e4e4dc', trim: '#1a7a3c' },
-  { id: 'fit_astro',     slot: 'outfit', name: 'Astronaut', price: 1000, shirt: '#e8ecf0', pants: '#b9c2cb', trim: '#ff8a2a', premium: true },
+  { id: 'fit_astro',     slot: 'outfit', name: 'Astronaut', price: 0, gems: 120, shirt: '#e8ecf0', pants: '#b9c2cb', trim: '#ff8a2a', premium: true },
   // Hats
   { id: 'hat_none',  slot: 'hat', name: 'No hat',   price: 0,    hat: 'none' },
   { id: 'hat_cap',   slot: 'hat', name: 'Cap',      price: 250,  hat: 'cap', hatColor: '#d6334f' },
   { id: 'hat_band',  slot: 'hat', name: 'Headband', price: 300,  hat: 'band', hatColor: '#ffb547' },
   { id: 'hat_helmet',slot: 'hat', name: 'Helmet',   price: 700,  hat: 'helmet', hatColor: '#3d4a55' },
-  { id: 'hat_crown', slot: 'hat', name: 'Crown',    price: 1200, hat: 'crown', hatColor: '#ffd23f', premium: true },
+  { id: 'hat_crown', slot: 'hat', name: 'Crown',    price: 0, gems: 140, hat: 'crown', hatColor: '#ffd23f', premium: true },
   // Elimination effects (what your hits look like)
   { id: 'fx_spark',    slot: 'fx', name: 'Sparks',   price: 0,   fx: 'spark' },
   { id: 'fx_confetti', slot: 'fx', name: 'Confetti', price: 400, fx: 'confetti', unlockLevel: 8 },
   { id: 'fx_pixels',   slot: 'fx', name: 'Pixels',   price: 600, fx: 'pixels' },
   { id: 'fx_smoke',    slot: 'fx', name: 'Smoke Puff', price: 600, fx: 'smoke' },
-  { id: 'fx_coins',    slot: 'fx', name: 'Coin Rain', price: 1500, fx: 'coins', premium: true },
+  { id: 'fx_coins',    slot: 'fx', name: 'Coin Rain', price: 0, gems: 180, fx: 'coins', premium: true },
   // Victory dances
   { id: 'dance_hop',    slot: 'dance', name: 'Hop',    price: 0,   dance: 'hop' },
   { id: 'dance_spin',   slot: 'dance', name: 'Spin',   price: 400, dance: 'spin', unlockLevel: 10 },
   { id: 'dance_wiggle', slot: 'dance', name: 'Wiggle', price: 500, dance: 'wiggle' },
-  { id: 'dance_flip',   slot: 'dance', name: 'Backflip', price: 1000, dance: 'flip', premium: true },
+  { id: 'dance_flip',   slot: 'dance', name: 'Backflip', price: 0, gems: 120, dance: 'flip', premium: true },
   // Floors
   { id: 'floor_steel', slot: 'floor', name: 'Steel Mesh', price: 0,    floor: { base: '#7d8a92', inner: '#aab4ba', mesh: '#24323a' } },
   { id: 'floor_lava',  slot: 'floor', name: 'Lava Rock',  price: 800,  floor: { base: '#3b2622', inner: '#57352c', mesh: '#ff5a1f', glow: '#ff5a1f' } },
   { id: 'floor_ice',   slot: 'floor', name: 'Ice Sheet',  price: 800,  floor: { base: '#9fd3e8', inner: '#d4f0fa', mesh: '#5a9bb8' } },
-  { id: 'floor_neon',  slot: 'floor', name: 'Neon Grid',  price: 1200, floor: { base: '#12121f', inner: '#1c1c33', mesh: '#d55bff', glow: '#d55bff' }, premium: true },
+  { id: 'floor_neon',  slot: 'floor', name: 'Neon Grid',  price: 0, gems: 140, floor: { base: '#12121f', inner: '#1c1c33', mesh: '#d55bff', glow: '#d55bff' }, premium: true },
 ];
 
 export const DEFAULT_EQUIP: Record<Slot, string> = {
@@ -173,3 +174,41 @@ export const item = (id: string) => ITEMS.find(i => i.id === id)!;
 // Looks for computer players
 export const NPC_OUTFITS = ['fit_classic', 'fit_desert', 'fit_ninja', 'fit_cricket'];
 export const HAIR_COLORS = ['#d8432a', '#e09a3a', '#3a2a20', '#f2d86c', '#7a4bd1', '#2fb3a5'];
+
+// ---------- Monetization (Sprint 3) ----------
+// AdMob: these are Google's official TEST ids. Replace with your own before going live
+// (App ID also goes in android/app/src/main/AndroidManifest.xml).
+export const ADS = {
+  testMode: true,
+  appId: 'ca-app-pub-3940256099942544~3347511713',
+  rewardedUnit: 'ca-app-pub-3940256099942544/5224354917',
+  dailyCap: 12,            // max rewarded ads per day
+};
+
+// Google Play in-app products. Create these exact Product IDs in Play Console → Monetize → In-app products.
+export interface Product { id: string; kind: 'gems' | 'starter' | 'noads'; gems: number; consumable: boolean; name: string; fallbackPrice: string; bonus?: string }
+export const PRODUCTS: Product[] = [
+  { id: 'gems_small',   kind: 'gems',    gems: 80,   consumable: true,  name: 'Handful of Gems', fallbackPrice: 'Rs 280' },
+  { id: 'gems_medium',  kind: 'gems',    gems: 450,  consumable: true,  name: 'Pouch of Gems',   fallbackPrice: 'Rs 1,400', bonus: '+12%' },
+  { id: 'gems_large',   kind: 'gems',    gems: 1000, consumable: true,  name: 'Chest of Gems',   fallbackPrice: 'Rs 2,800', bonus: '+25%' },
+  { id: 'starter_pack', kind: 'starter', gems: 150,  consumable: false, name: 'Starter Pack',    fallbackPrice: 'Rs 280' },
+  { id: 'remove_ads',   kind: 'noads',   gems: 0,    consumable: false, name: 'No-Ads Pass',     fallbackPrice: 'Rs 840' },
+];
+export const STARTER = { coins: 1000, item: 'gun_neon' };
+export const NOADS_DAILY_GEMS = 10;
+/** Swap gems for coins. */
+export const EXCHANGE = [{ gems: 20, coins: 500 }, { gems: 60, coins: 1700 }, { gems: 150, coins: 4500 }];
+
+// Daily spin wheel: weights decide how often each slice wins.
+export interface SpinSlice { label: string; coins?: number; gems?: number; item?: boolean; weight: number; color: string }
+export const SPIN: SpinSlice[] = [
+  { label: '50',   coins: 50,  weight: 22, color: '#3557d4' },
+  { label: '100',  coins: 100, weight: 20, color: '#7f43f0' },
+  { label: '5',    gems: 5,    weight: 14, color: '#ec2f45' },
+  { label: '200',  coins: 200, weight: 14, color: '#3fb52b' },
+  { label: 'ITEM', item: true, weight: 6,  color: '#ffb300' },
+  { label: '300',  coins: 300, weight: 10, color: '#2a7ff0' },
+  { label: '15',   gems: 15,   weight: 9,  color: '#c81f8a' },
+  { label: '40',   gems: 40,   weight: 5,  color: '#0b1240' },
+];
+export const SPIN_AD_EXTRA = 2;   // extra spins per day by watching an ad

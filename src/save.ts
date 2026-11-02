@@ -24,10 +24,18 @@ export interface Profile {
   missions: { date: string; list: MissionState[] };
   lastBots: number;
   lastDiff: 'easy' | 'normal' | 'hard';
+  // monetization (Sprint 3)
+  gems: number;
+  noAds: boolean;               // bought the No-Ads Pass
+  starterBought: boolean;
+  ads: { date: string; count: number };              // rewarded ads watched today
+  spin: { date: string; freeUsed: boolean; adSpins: number };
+  noAdsGems: string;            // date the No-Ads daily gems were last given
+  tokens: string[];             // purchase tokens already granted (avoid double rewards)
 }
 
 const KEY = 'lasercage.profile.v1';
-const freeItems = () => ITEMS.filter(i => i.price === 0).map(i => i.id);
+const freeItems = () => ITEMS.filter(i => i.price === 0 && !i.gems).map(i => i.id);
 
 function fresh(): Profile {
   return {
@@ -40,6 +48,8 @@ function fresh(): Profile {
     daily: { last: '', streak: 0 },
     missions: { date: '', list: [] },
     lastBots: 3, lastDiff: 'normal',
+    gems: 0, noAds: false, starterBought: false,
+    ads: { date: '', count: 0 }, spin: { date: '', freeUsed: false, adSpins: 0 }, noAdsGems: '', tokens: [],
   };
 }
 
@@ -71,8 +81,13 @@ export function save() {
 export function buy(id: string): 'ok' | 'owned' | 'poor' {
   const it = item(id);
   if (profile.owned.includes(id)) return 'owned';
-  if (profile.coins < it.price) return 'poor';
-  profile.coins -= it.price;
+  if (it.gems) {
+    if (profile.gems < it.gems) return 'poor';
+    profile.gems -= it.gems;
+  } else {
+    if (profile.coins < it.price) return 'poor';
+    profile.coins -= it.price;
+  }
   profile.owned.push(id);
   profile.equip[it.slot] = id;
   save();
@@ -88,3 +103,5 @@ export function equip(id: string) {
 }
 
 export function addCoins(n: number) { profile.coins += n; save(); }
+
+export function addGems(n: number) { profile.gems += n; save(); }

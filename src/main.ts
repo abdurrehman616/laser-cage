@@ -5,12 +5,14 @@ import { ArenaView } from './render/scene';
 import { addCoins, buy, equip, profile, save } from './save';
 import { buzz, playMusic, refreshMusic, sfx, unlockAudio } from './audio';
 import { addXp, arenaUnlocked, claimDaily, claimMission, dailyAvailable, matchXp, missions, missionsReady, nextUnlock, trackMatch } from './progress';
+import { EXCHANGE, PRODUCTS, SPIN, NOADS_DAILY_GEMS, STARTER } from './config';
+import { adSpinsLeft, adsLeftToday, buyProduct, exchange, freeSpinReady, initAds, initStore, noAdsDaily, priceOf, privacyOptionsRequired, restorePurchases, rewardedAd, showPrivacyOptions, spin } from './monetize';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const view = new ArenaView($('view') as HTMLCanvasElement, $('labels'));
 
 // ---------------- state ----------------
-type Screen = 'home' | 'shop' | 'settings' | 'howto' | 'daily' | 'missions' | 'game' | 'pause' | 'result';
+type Screen = 'home' | 'shop' | 'settings' | 'howto' | 'daily' | 'missions' | 'spin' | 'game' | 'pause' | 'result';
 let screen: Screen = 'home';
 let match: Match | null = null;
 let paused = false;
@@ -19,7 +21,7 @@ const keys = new Set<string>();
 const diffMult: Record<Difficulty, number> = { easy: 1, normal: 1.5, hard: 2 };
 let dailyShown = false;
 
-const SCREENS: Screen[] = ['home', 'shop', 'settings', 'howto', 'daily', 'missions', 'pause', 'result'];
+const SCREENS: Screen[] = ['home', 'shop', 'settings', 'howto', 'daily', 'missions', 'spin', 'pause', 'result'];
 function show(s: Screen) {
   screen = s;
   for (const id of SCREENS) $(id).hidden = id !== s;
@@ -60,6 +62,9 @@ const currentArena = () => (arenaUnlocked(profile.arena) ? profile.arena : 'cage
 function refreshHome() {
   $('coinCount').textContent = String(profile.coins);
   document.querySelectorAll('.coinCount').forEach(e => (e.textContent = String(profile.coins)));
+  document.querySelectorAll('.gemCount').forEach(e => (e.textContent = String(profile.gems)));
+  $('spinDot').hidden = !freeSpinReady();
+  $('spinBtnSide').hidden = !profile.tutorialDone;
   $('lvlNum').textContent = String(profile.level);
   $('xpFill').style.transform = `scaleX(${profile.level >= MAX_LEVEL ? 1 : profile.xp / xpToNext(profile.level)})`;
   const s = profile.stats;
@@ -125,8 +130,11 @@ $('settingsBtn').onclick = () => {
   ($('optSound') as HTMLInputElement).checked = profile.sound; ($('optVibe') as HTMLInputElement).checked = profile.vibrate;
   ($('optMusic') as HTMLInputElement).checked = profile.music; ($('optSwap') as HTMLInputElement).checked = profile.swapSticks;
   seg('segGfx', ['auto', 'high', 'low'], () => profile.gfx, v => { profile.gfx = v; save(); applyGfx(); }, ['AUTO', 'HIGH', 'LOW']);
+  $('privacyBtn').hidden = !privacyOptionsRequired;
   show('settings');
 };
+$('restoreBtn').onclick = async () => { sfx.click(); toast(await restorePurchases()); refreshHome(); };
+$('privacyBtn').onclick = () => { sfx.click(); showPrivacyOptions(); };
 $('optSwap').onchange = e => { profile.swapSticks = (e.target as HTMLInputElement).checked; save(); applySwap(); };
 $('optSound').onchange = e => { profile.sound = (e.target as HTMLInputElement).checked; save(); };
 $('optMusic').onchange = e => { profile.music = (e.target as HTMLInputElement).checked; save(); refreshMusic(); };
@@ -178,12 +186,15 @@ $('missionsBtn').onclick = () => { unlockAudio(); sfx.click(); openMissions(); }
 $('missionsClose').onclick = () => { sfx.click(); show('home'); };
 
 // ---------------- shop ----------------
-const TABS: { slot: Slot; name: string }[] = [
-  { slot: 'laser', name: 'LASERS' }, { slot: 'gun', name: 'GUNS' }, { slot: 'outfit', name: 'OUTFITS' }, { slot: 'hat', name: 'HATS' },
+type Tab = Slot | 'gems';
+const TABS: { slot: Tab; name: string }[] = [
+  { slot: 'gems', name: 'GEMS' }, { slot: 'laser', name: 'LASERS' }, { slot: 'gun', name: 'GUNS' }, { slot: 'outfit', name: 'OUTFITS' }, { slot: 'hat', name: 'HATS' },
   { slot: 'fx', name: 'EFFECTS' }, { slot: 'dance', name: 'DANCES' }, { slot: 'floor', name: 'FLOORS' },
 ];
-let shopTab: Slot = 'laser', shopSel = '';
-$('shopBtn').onclick = () => { unlockAudio(); sfx.click(); shopSel = profile.equip[shopTab]; renderShop(); show('shop'); applyPreview(); };
+let shopTab: Tab = 'laser', shopSel = '';
+function openShop(tab: Tab) { shopTab = tab; shopSel = tab === 'gems' ? '' : profile.equip[tab]; renderShop(); show('shop'); applyPreview(); }
+$('shopBtn').onclick = () => { unlockAudio(); sfx.click(); openShop(shopTab === 'gems' ? 'laser' : shopTab); };
+document.querySelectorAll('.gemPill').forEach(b => b.addEventListener('click', () => { unlockAudio(); sfx.click(); openShop('gems'); }));
 const FX_ICON: Record<string, string> = { spark: '✦', confetti: '✿', pixels: '▦', coins: '●', smoke: '☁' };
 function swatch(id: string) {
   const it = item(id);
@@ -205,15 +216,19 @@ function renderShop() {
   const tabs = $('shopTabs'); tabs.innerHTML = '';
   for (const t of TABS) {
     const b = document.createElement('button'); b.type = 'button'; b.textContent = t.name; if (t.slot === shopTab) b.className = 'on';
-    b.onclick = () => { sfx.click(); shopTab = t.slot; shopSel = profile.equip[t.slot]; renderShop(); applyPreview(); };
+    b.onclick = () => { sfx.click(); shopTab = t.slot; shopSel = t.slot === 'gems' ? '' : profile.equip[t.slot]; renderShop(); applyPreview(); };
     tabs.appendChild(b);
   }
+  const isStore = shopTab === 'gems';
+  $('shopGrid').hidden = isStore; $('shopAction').hidden = isStore; $('store').hidden = !isStore;
+  if (isStore) { renderStore(); refreshHome(); return; }
   const grid = $('shopGrid'); grid.innerHTML = '';
   for (const it of ITEMS.filter(i => i.slot === shopTab)) {
     const owned = profile.owned.includes(it.id), eq = profile.equip[it.slot] === it.id;
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'itm' + (it.premium ? ' rare' : it.price === 0 ? ' free' : '') + (shopSel === it.id ? ' sel' : '');
     const price = owned ? `<span class="pr own">${eq ? 'EQUIPPED' : 'OWNED'}</span>`
+      : it.gems ? `<span class="pr gp"><b class="gem"></b>${it.gems}</span>`
       : it.unlockLevel ? `<span class="pr"><b class="coin"></b>${it.price} · LV${it.unlockLevel}</span>`
       : `<span class="pr"><b class="coin"></b>${it.price}</span>`;
     b.innerHTML = `<span class="sw" style="background:${swatch(it.id)}">${swatchLabel(it.id)}</span><span class="nm"></span>` + price +
@@ -226,11 +241,12 @@ function renderShop() {
   const owned = profile.owned.includes(shopSel), eq = profile.equip[it.slot] === shopSel;
   act.disabled = eq;
   act.className = 'gbtn wide ' + (owned ? 'green' : 'yellow');
-  act.innerHTML = eq ? 'EQUIPPED' : owned ? 'EQUIP' : `BUY <b class="coin"></b> ${it.price}`;
+  act.innerHTML = eq ? 'EQUIPPED' : owned ? 'EQUIP' : it.gems ? `BUY <b class="gem"></b> ${it.gems}` : `BUY <b class="coin"></b> ${it.price}`;
   refreshHome();
 }
 function applyPreview() {
   // try the selected item on, without buying it
+  if (shopTab === 'gems') { showMyPreview(); view.setFloor(profile.equip.floor); view.previewDance = null; return; }
   const it = item(shopSel);
   showMyPreview({ [shopTab]: shopSel });
   view.setFloor(shopTab === 'floor' ? shopSel : profile.equip.floor);
@@ -242,10 +258,117 @@ $('shopAction').onclick = () => {
   if (profile.owned.includes(it.id)) { equip(it.id); sfx.click(); }
   else {
     const r = buy(it.id);
+    if (r === 'poor' && it.gems) { sfx.denied(); toast(`Need ${it.gems - profile.gems} more gems`); openShop('gems'); return; }
     if (r === 'poor') { sfx.denied(); toast(`Need ${it.price - profile.coins} more coins. Win matches to earn them!`); return; }
     sfx.buy(); buzz(30); toast(`${it.name.toUpperCase()} UNLOCKED!`);
   }
   renderShop(); applyPreview();
+};
+
+// ---------------- gem store ----------------
+function renderStore() {
+  const st = $('store'); st.innerHTML = '';
+  const el = (html: string) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild as HTMLElement; };
+  const buyBtn = (pid: string, label: string, cls = 'green') => `<button class="gbtn ${cls}" type="button" data-buy="${pid}">${label}</button>`;
+  const starter = PRODUCTS.find(p => p.kind === 'starter')!, noads = PRODUCTS.find(p => p.kind === 'noads')!;
+  if (!profile.starterBought) st.appendChild(el(`<div class="offer"><span class="tag">ONE TIME ONLY</span><span class="ic"><b class="gem"></b></span>
+    <h4>STARTER PACK</h4><p>${starter.gems} gems, ${STARTER.coins} coins and the Neon gun</p>${buyBtn(starter.id, priceOf(starter))}</div>`));
+  st.appendChild(el(`<p class="storeh">GEMS</p>`));
+  const packs = el(`<div class="packs"></div>`);
+  PRODUCTS.filter(p => p.kind === 'gems').forEach((p, i) => packs.appendChild(el(`<button class="pack" type="button" data-buy="${p.id}">${p.bonus ? `<span class="bonus">${p.bonus}</span>` : ''}
+    <span class="gemstack">${'<b class="gem"></b>'.repeat(i + 1)}</span><b>${p.gems}</b><span class="price">${priceOf(p)}</span></button>`)));
+  st.appendChild(packs);
+  st.appendChild(el(profile.noAds
+    ? `<div class="offer noads"><span class="ic">✓</span><h4>NO-ADS PASS</h4><p>Active. Ad rewards are instant and you get ${NOADS_DAILY_GEMS} gems every day.</p></div>`
+    : `<div class="offer noads"><span class="ic">▶</span><h4>NO-ADS PASS</h4><p>Get every ad reward instantly, without watching, plus ${NOADS_DAILY_GEMS} gems every day.</p>${buyBtn(noads.id, priceOf(noads), 'yellow')}</div>`));
+  st.appendChild(el(`<p class="storeh">SWAP GEMS FOR COINS</p>`));
+  const ex = el(`<div class="exch"></div>`);
+  EXCHANGE.forEach((e, i) => ex.appendChild(el(`<button class="gbtn blue" type="button" data-ex="${i}"><span><b class="gem"></b>${e.gems}</span><span><b class="coin"></b>${e.coins}</span></button>`)));
+  st.appendChild(ex);
+  st.querySelectorAll<HTMLElement>('[data-buy]').forEach(b => b.onclick = async () => {
+    sfx.click();
+    const p = PRODUCTS.find(x => x.id === b.dataset.buy)!;
+    const r = await buyProduct(p, () => fakeBuy(`${p.name.toUpperCase()} · ${priceOf(p)}`));
+    if (r.ok) { sfx.buy(); buzz([40, 40, 80]); toast(r.msg); } else if (r.msg) { sfx.denied(); toast(r.msg); }
+    renderShop();
+  });
+  st.querySelectorAll<HTMLElement>('[data-ex]').forEach(b => b.onclick = () => {
+    const e = EXCHANGE[+b.dataset.ex!];
+    if (exchange(+b.dataset.ex!)) { sfx.buy(); toast(`+${e.coins} COINS`); renderShop(); }
+    else { sfx.denied(); toast(`Need ${e.gems - profile.gems} more gems`); }
+  });
+}
+
+// ---------------- browser test mode for ads and purchases ----------------
+function fakeAd(): Promise<boolean> {
+  return new Promise(res => {
+    const o = $('fakead'); o.hidden = false; let n = 3; $('fakeadCount').textContent = String(n);
+    const t = setInterval(() => { n--; $('fakeadCount').textContent = String(Math.max(n, 0)); if (n <= 0) { clearInterval(t); o.hidden = true; res(true); } }, 700);
+  });
+}
+function fakeBuy(title: string): Promise<boolean> {
+  return new Promise(res => {
+    const o = $('fakebuy'); $('fakebuyTitle').textContent = title; o.hidden = false;
+    const done = (v: boolean) => { o.hidden = true; res(v); };
+    $('fakebuyYes').onclick = () => done(true); $('fakebuyNo').onclick = () => done(false);
+  });
+}
+const watchAd = () => rewardedAd(fakeAd);
+
+// ---------------- daily spin ----------------
+let wheelAngle = 0, spinning = false;
+function drawWheel() {
+  const c = $('wheel') as HTMLCanvasElement, g = c.getContext('2d')!, W = c.width, R = W / 2, n = SPIN.length;
+  g.clearRect(0, 0, W, W);
+  SPIN.forEach((s, i) => {
+    const a0 = -Math.PI / 2 + (i * 2 * Math.PI) / n - Math.PI / n, a1 = a0 + (2 * Math.PI) / n;
+    g.beginPath(); g.moveTo(R, R); g.arc(R, R, R, a0, a1); g.closePath(); g.fillStyle = s.color; g.fill();
+    g.strokeStyle = '#0b1240'; g.lineWidth = 6; g.stroke();
+    const mid = (a0 + a1) / 2, flip = Math.cos(mid) < -0.01;   // keep text upright on the left half
+    g.save(); g.translate(R, R); g.rotate(flip ? mid + Math.PI : mid);
+    const tx = flip ? -(R - 34) : R - 34, mx = flip ? -(R - 18) : R - 18;
+    g.textAlign = flip ? 'left' : 'right'; g.textBaseline = 'middle'; g.font = '44px "Lilita One", Impact, sans-serif';
+    g.lineWidth = 9; g.strokeStyle = '#0b1240'; g.strokeText(s.label, tx, 0); g.fillStyle = '#fff'; g.fillText(s.label, tx, 0);
+    // tiny currency mark
+    g.beginPath(); g.arc(mx, 0, 9, 0, 7); g.fillStyle = s.gems ? '#c86bff' : s.item ? '#5ef0c0' : '#ffcf33'; g.fill(); g.lineWidth = 4; g.stroke();
+    g.restore();
+  });
+}
+function openSpin() {
+  drawWheel();
+  $('spinResult').innerHTML = '&nbsp;';
+  updateSpinBtn();
+  show('spin');
+}
+function updateSpinBtn() {
+  const b = $('spinGo') as HTMLButtonElement;
+  const free = freeSpinReady(), adLeft = adSpinsLeft();
+  b.disabled = spinning || (!free && adLeft <= 0);
+  b.className = 'gbtn wide ' + (free ? 'yellow' : 'green adbtn');
+  b.innerHTML = free ? 'FREE SPIN' : adLeft > 0 ? (profile.noAds ? `SPIN AGAIN (${adLeft} LEFT)` : `<svg><use href="#i-play"/></svg>WATCH AD: SPIN AGAIN (${adLeft})`) : 'COME BACK TOMORROW';
+}
+$('spinBtnSide').onclick = () => { unlockAudio(); sfx.click(); openSpin(); };
+$('spinClose').onclick = () => { if (spinning) return; sfx.click(); show('home'); };
+$('spinGo').onclick = async () => {
+  if (spinning) return;
+  unlockAudio();
+  const viaAd = !freeSpinReady();
+  if (viaAd) {
+    if (adSpinsLeft() <= 0) return;
+    if (!(await watchAd())) { sfx.denied(); toast(adsLeftToday() ? 'The ad didn\'t finish, so no spin this time.' : 'No more ads today. Come back tomorrow!'); return; }
+  }
+  const r = spin(viaAd);
+  spinning = true; updateSpinBtn(); sfx.click();
+  const n = SPIN.length, slice = 360 / n;
+  // land the chosen slice under the top pointer, after a few full turns
+  const target = 360 * 5 + (360 - r.index * slice) + (Math.random() - 0.5) * slice * 0.6;
+  wheelAngle = wheelAngle - (wheelAngle % 360) + target;
+  ($('wheel') as HTMLCanvasElement).style.transform = `rotate(${wheelAngle}deg)`;
+  let ticks = 0; const tk = setInterval(() => { if (++ticks > 22) clearInterval(tk); else sfx.tick(false); }, 160);
+  setTimeout(() => {
+    spinning = false; sfx.win(); buzz([40, 40, 80]);
+    $('spinResult').textContent = r.text; updateSpinBtn(); refreshHome();
+  }, 4100);
 };
 
 // ---------------- coach (guided first match) ----------------
@@ -366,6 +489,16 @@ function updateControls() {
   else hint.hidden = true;
 }
 
+let lastCoins = 0, doubled = false;
+$('doubleBtn').onclick = async () => {
+  if (doubled) return;
+  const db = $('doubleBtn') as HTMLButtonElement; db.disabled = true;
+  const ok = await watchAd();
+  if (!ok) { db.disabled = false; sfx.denied(); toast('The ad didn\'t finish, so no bonus this time.'); return; }
+  doubled = true; addCoins(lastCoins); sfx.buy(); buzz([40, 40, 80]);
+  $('stCoins').textContent = '+' + lastCoins * 2; db.classList.add('used'); $('doubleText').textContent = 'COINS DOUBLED!';
+};
+
 function ord(n: number) { const s = ['TH', 'ST', 'ND', 'RD'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
 function results(m: Match) {
@@ -396,6 +529,11 @@ function results(m: Match) {
   $('stPlace').textContent = ord(place);
   $('stKills').textContent = String(kills);
   $('stCoins').textContent = '+' + coins;
+  lastCoins = coins; doubled = false;
+  const db = $('doubleBtn') as HTMLButtonElement;
+  db.hidden = coins <= 0 || (!profile.noAds && adsLeftToday() <= 0);
+  db.disabled = false; db.classList.remove('used');
+  $('doubleText').textContent = profile.noAds ? `DOUBLE COINS (+${coins})` : `WATCH AD: DOUBLE COINS (+${coins})`;
   $('resXp').textContent = `+${xp} XP`;
   $('resLvl').textContent = String(profile.level);
   const fill = $('resXpFill');
@@ -471,7 +609,10 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && scr
 // Android back button
 import('@capacitor/app').then(({ App }) => {
   App.addListener('backButton', () => {
+    if (!$('fakead').hidden) return;
+    if (!$('fakebuy').hidden) { $('fakebuyNo').click(); return; }
     if (screen === 'game') pause();
+    else if (screen === 'spin' && spinning) return;
     else if (screen === 'pause') $('resumeBtn').click();
     else if (screen === 'home') App.exitApp();
     else show('home');
@@ -528,6 +669,9 @@ function frame(now: number) {
 }
 show('home');
 requestAnimationFrame(frame);
+initAds();
+initStore(() => { if (screen === 'shop') renderShop(); refreshHome(); });
+{ const g = noAdsDaily(); if (g) setTimeout(() => toast(`NO-ADS PASS: +${g} GEMS TODAY`), 1200); }
 
 // debug hook for automated tests
-(window as unknown as { __lc: unknown }).__lc = { get match() { return match; }, startMatch, setup, profile, show, openDaily, openMissions };
+(window as unknown as { __lc: unknown }).__lc = { get match() { return match; }, startMatch, setup, profile, show, openDaily, openMissions, openSpin, openShop, refreshHome };
