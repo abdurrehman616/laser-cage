@@ -1,6 +1,6 @@
 // Three.js view of a match. Reads Match state every frame; never changes the rules.
 import * as THREE from 'three';
-import { ARENA, item } from '../config';
+import { ARENA, Arena, ARENAS, FxStyle, DanceStyle, item } from '../config';
 import { cageCorners } from '../game/arena';
 import type { Match, Player } from '../game/match';
 import type { Look } from '../game/match';
@@ -43,7 +43,11 @@ export class ArenaView {
   private vis: Vis[] = [];
   private shotGroup = new THREE.Group();
   private fx = new THREE.Group();
-  private particles: { m: THREE.Mesh; v: THREE.Vector3; life: number }[] = [];
+  private particles: { m: THREE.Mesh; v: THREE.Vector3; life: number; g: number; spin: number; grow: number; mats?: THREE.Material[] }[] = [];
+  private env = new THREE.Group();
+  private hemi!: THREE.HemisphereLight;
+  private arenaId = '';
+  previewDance: DanceStyle | null = null;
   private marker: THREE.Mesh;
   private selRing: THREE.Mesh;
   private labels: HTMLElement;
@@ -95,7 +99,7 @@ export class ArenaView {
     this.scene.background = new THREE.Color('#14205a');
     this.scene.fog = new THREE.Fog('#14205a', 70, 140);
 
-    const hemi = new THREE.HemisphereLight('#cfe8ff', '#1d3a2c', 1.1); this.scene.add(hemi);
+    const hemi = new THREE.HemisphereLight('#cfe8ff', '#1d3a2c', 1.1); this.scene.add(hemi); this.hemi = hemi;
     const sun = new THREE.DirectionalLight('#fff3df', 2.0);
     sun.position.set(-6, 16, 8); sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
@@ -104,7 +108,7 @@ export class ArenaView {
     sun.shadow.bias = -0.0008;
     this.scene.add(sun);
 
-    this.buildStatic();
+    this.setArena(ARENAS[0]);
     this.scene.add(this.tileGroup, this.shotGroup, this.fx);
 
     this.marker = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.4, 28), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.8, depthWrite: false }));
@@ -118,10 +122,23 @@ export class ArenaView {
   }
 
   // ---------- static arena ----------
-  private buildStatic() {
+  /** Swap the surroundings (ground, pit, fence, sky, light) for an arena theme. */
+  setArena(a: Arena) {
+    if (a.id === this.arenaId) return;
+    this.arenaId = a.id;
+    this.env.traverse(o => { const mm = o as THREE.Mesh; if (mm.geometry) mm.geometry.dispose(); const mt = mm.material as THREE.Material | undefined; if (mt) { (mt as THREE.MeshStandardMaterial).map?.dispose(); mt.dispose(); } });
+    this.scene.remove(this.env); this.env = new THREE.Group(); this.scene.add(this.env);
+    (this.scene.background as THREE.Color | null) ? (this.scene.background as THREE.Color).set(a.sky) : (this.scene.background = new THREE.Color(a.sky));
+    (this.scene.fog as THREE.Fog).color.set(a.sky);
+    this.hemi.color.set(a.hemiSky); this.hemi.groundColor.set(a.hemiGround);
+    this.sun.color.set(a.sun);
+    this.buildStatic(a);
+  }
+  private buildStatic(a: Arena) {
+    const add = (o: THREE.Object3D) => this.env.add(o);
     const grass = canvasTex(128, (g, s) => {
-      g.fillStyle = '#2f6046'; g.fillRect(0, 0, s, s);
-      for (let i = 0; i < 900; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(20,50,34,.35)' : 'rgba(80,130,90,.25)'; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); }
+      g.fillStyle = a.ground; g.fillRect(0, 0, s, s);
+      for (let i = 0; i < 900; i++) { g.fillStyle = a.groundDot[i % 2]; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); }
     }, 18);
     const groundM = new THREE.MeshStandardMaterial({ map: grass, roughness: 1 });
     const R = ARENA.cageRadius;
@@ -136,41 +153,41 @@ export class ArenaView {
     const ground = new THREE.Mesh(new THREE.ShapeGeometry(gShape), groundM);
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true;
     grass.repeat.set(0.15, 0.15);
-    this.scene.add(ground);
+    add(ground);
 
     // concrete rim around the pit
     const rShape = new THREE.Shape(octPath(R + 0.55));
     rShape.holes.push(new THREE.Path(octPath(R - 0.25, true)));
-    const rim = new THREE.Mesh(new THREE.ShapeGeometry(rShape), new THREE.MeshStandardMaterial({ color: '#46545c', roughness: 0.9 }));
-    rim.rotation.x = -Math.PI / 2; rim.receiveShadow = true; this.scene.add(rim);
+    const rim = new THREE.Mesh(new THREE.ShapeGeometry(rShape), new THREE.MeshStandardMaterial({ color: a.rim, roughness: 0.9 }));
+    rim.rotation.x = -Math.PI / 2; rim.receiveShadow = true; add(rim);
 
     // the pit: dark walls going down, tiles fall into it
     const well = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.25, R - 0.6, 7, 8, 1, true),
-      new THREE.MeshStandardMaterial({ color: '#0e1f1c', roughness: 1, side: THREE.BackSide }));
-    well.rotation.y = Math.PI / 8; well.position.y = -3.5; this.scene.add(well);
-    const bottom = new THREE.Mesh(new THREE.CircleGeometry(R, 8), new THREE.MeshBasicMaterial({ color: '#020605' }));
-    bottom.rotation.x = -Math.PI / 2; bottom.position.y = -7; this.scene.add(bottom);
+      new THREE.MeshStandardMaterial({ color: a.well, roughness: 1, side: THREE.BackSide }));
+    well.rotation.y = Math.PI / 8; well.position.y = -3.5; add(well);
+    const bottom = new THREE.Mesh(new THREE.CircleGeometry(R, 8), new THREE.MeshBasicMaterial({ color: a.pit }));
+    bottom.rotation.x = -Math.PI / 2; bottom.position.y = -7; add(bottom);
 
     // fence
     const link = canvasTex(64, (g, s) => {
-      g.clearRect(0, 0, s, s); g.strokeStyle = 'rgba(190,205,212,.85)'; g.lineWidth = 3;
+      g.clearRect(0, 0, s, s); g.strokeStyle = a.fence; g.lineWidth = 3;
       g.beginPath(); g.moveTo(0, 0); g.lineTo(s, s); g.moveTo(s, 0); g.lineTo(0, s); g.stroke();
     });
     const H = 2.3;
-    const postM = new THREE.MeshStandardMaterial({ color: '#12171b', metalness: 0.6, roughness: 0.4 });
+    const postM = new THREE.MeshStandardMaterial({ color: a.post, metalness: 0.6, roughness: 0.4 });
     const postG = new THREE.CylinderGeometry(0.07, 0.07, H, 8);
     const pts = cageCorners(R);
     for (let i = 0; i < 8; i++) {
       const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % 8];
-      const post = new THREE.Mesh(postG, postM); post.position.set(ax, H / 2, az); post.castShadow = true; this.scene.add(post);
+      const post = new THREE.Mesh(postG, postM); post.position.set(ax, H / 2, az); post.castShadow = true; add(post);
       const len = Math.hypot(bx - ax, bz - az), mx = (ax + bx) / 2, mz = (az + bz) / 2;
       const front = mz > 0;   // panels nearest the camera are see-through so they don't hide the floor
       const tex = link.clone(); tex.needsUpdate = true; tex.repeat.set(len * 3, H * 3);
       const panel = new THREE.Mesh(new THREE.PlaneGeometry(len, H), new THREE.MeshStandardMaterial({ map: tex, transparent: true, opacity: front ? 0.28 : 0.85, side: THREE.DoubleSide, depthWrite: false, metalness: 0.3, roughness: 0.6 }));
-      panel.position.set(mx, H / 2, mz); panel.rotation.y = -Math.atan2(bz - az, bx - ax); this.scene.add(panel);
+      panel.position.set(mx, H / 2, mz); panel.rotation.y = -Math.atan2(bz - az, bx - ax); add(panel);
       for (const y of [H, 0.05]) {
         const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 0.08, 0.08), postM);
-        rail.position.set(mx, y, mz); rail.rotation.y = panel.rotation.y; this.scene.add(rail);
+        rail.position.set(mx, y, mz); rail.rotation.y = panel.rotation.y; add(rail);
       }
     }
   }
@@ -285,20 +302,54 @@ export class ArenaView {
         mesh.userData.base = o;
         this.shotGroup.add(mesh);
       }
-      if (s.hit) this.burst(s.hit.x, s.hit.z, s.from.color);
+      if (s.hit) this.burst(s.hit.x, s.hit.z, s.from.color, item(s.from.look.fx || 'fx_spark').fx);
     }
     this.shake = 0.35;
   }
-  private partGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-  burst(x: number, z: number, color: string) {
-    const mats = [color, '#ffffff'].map(c => new THREE.MeshBasicMaterial({ color: c, transparent: true, toneMapped: false }));
-    for (let i = 0; i < 18; i++) {
-      const m = new THREE.Mesh(this.partGeo, mats[i % 3 ? 0 : 1]);
-      m.position.set(x, 0.9, z);
-      const v = new THREE.Vector3((Math.random() - 0.5) * 5, Math.random() * 4 + 1, (Math.random() - 0.5) * 5);
-      this.fx.add(m); this.particles.push({ m, v, life: 1 });
+  private geos = {
+    spark: new THREE.BoxGeometry(0.1, 0.1, 0.1),
+    confetti: new THREE.PlaneGeometry(0.14, 0.09),
+    pixels: new THREE.BoxGeometry(0.17, 0.17, 0.17),
+    coins: new THREE.CylinderGeometry(0.11, 0.11, 0.03, 12),
+    smoke: new THREE.SphereGeometry(0.22, 8, 6),
+  };
+  /** Hit effect. Style comes from the shooter's equipped elimination effect. */
+  burst(x: number, z: number, color: string, style: FxStyle = 'spark') {
+    const R = Math.random;
+    const mk = (c: string, extra: THREE.MeshBasicMaterialParameters = {}) => new THREE.MeshBasicMaterial({ color: c, transparent: true, toneMapped: false, ...extra });
+    let mats: THREE.Material[];
+    const spawn = (n: number, pick: (i: number) => THREE.Material, vel: () => THREE.Vector3, g: number, spin = 0, grow = 0, y = 0.9) => {
+      for (let i = 0; i < n; i++) {
+        const m = new THREE.Mesh(this.geos[style], pick(i));
+        m.position.set(x + (R() - 0.5) * 0.3, y, z + (R() - 0.5) * 0.3);
+        m.rotation.set(R() * 6, R() * 6, R() * 6);
+        this.fx.add(m); this.particles.push({ m, v: vel(), life: 1, g, spin, grow, mats: i === 0 ? mats : undefined });
+      }
+    };
+    switch (style) {
+      case 'confetti':
+        mats = ['#ff4d6d', '#ffcf33', '#5ef0c0', '#5cc0ff', '#c18bff'].map(c => mk(c, { side: THREE.DoubleSide }));
+        spawn(34, i => mats[i % mats.length], () => new THREE.Vector3((R() - 0.5) * 4, R() * 5 + 2, (R() - 0.5) * 4), 4, 8);
+        break;
+      case 'pixels':
+        mats = [mk(color), mk('#ffffff'), mk('#0b1240')];
+        spawn(20, i => mats[i % 3], () => new THREE.Vector3((R() - 0.5) * 1.6, R() * 1.5 + 0.5, (R() - 0.5) * 1.6), -1.5, 1);
+        break;
+      case 'coins':
+        mats = [mk('#ffcf33'), mk('#ffe98a')];
+        spawn(16, i => mats[i % 2], () => new THREE.Vector3((R() - 0.5) * 3.5, R() * 5 + 3, (R() - 0.5) * 3.5), 9, 10, 0, 1.2);
+        break;
+      case 'smoke':
+        mats = [mk('#d9dde8', { opacity: 0.8 }), mk('#9aa3b8', { opacity: 0.8 })];
+        spawn(12, i => mats[i % 2], () => new THREE.Vector3((R() - 0.5) * 1.4, R() * 0.8 + 0.4, (R() - 0.5) * 1.4), -0.4, 0.5, 1.6, 0.7);
+        break;
+      default:
+        mats = [mk(color), mk('#ffffff')];
+        spawn(18, i => mats[i % 3 ? 0 : 1], () => new THREE.Vector3((R() - 0.5) * 5, R() * 4 + 1, (R() - 0.5) * 5), 9);
     }
   }
+  /** Shop preview: play an effect next to the character. */
+  previewBurst(style: FxStyle) { this.burst(0.9, 0.6, '#ff4d6d', style); }
 
   // ---------- input helpers ----------
   screenToGround(cx: number, cy: number): { x: number; z: number } | null {
@@ -415,10 +466,12 @@ export class ArenaView {
     // particles
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const q = this.particles[i];
-      q.life -= dt * 1.1; q.v.y -= 9 * dt; q.m.position.addScaledVector(q.v, dt);
-      if (q.m.position.y < 0.05 && Math.hypot(q.m.position.x, q.m.position.z) < 7) { q.m.position.y = 0.05; q.v.multiplyScalar(0.5); q.v.y = Math.abs(q.v.y) * 0.3; }
-      (q.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, q.life);
-      if (q.life <= 0) { this.fx.remove(q.m); this.particles.splice(i, 1); }
+      q.life -= dt * (q.grow ? 0.8 : 1.1); q.v.y -= q.g * dt; q.m.position.addScaledVector(q.v, dt);
+      if (q.spin) { q.m.rotation.x += q.spin * dt; q.m.rotation.y += q.spin * 0.7 * dt; }
+      if (q.grow) q.m.scale.setScalar(1 + (1 - q.life) * q.grow);
+      if (q.g > 0 && q.m.position.y < 0.05 && Math.hypot(q.m.position.x, q.m.position.z) < 7) { q.m.position.y = 0.05; q.v.multiplyScalar(0.5); q.v.y = Math.abs(q.v.y) * 0.3; }
+      (q.m.material as THREE.MeshBasicMaterial).opacity = Math.max(0, q.life) * (q.grow ? 0.8 : 1);
+      if (q.life <= 0) { this.fx.remove(q.m); q.mats?.forEach(mt => mt.dispose()); this.particles.splice(i, 1); }
     }
 
     // camera shake + gentle drift on menus
@@ -458,6 +511,14 @@ export class ArenaView {
     rig.body.position.y = moved > 0.001 ? Math.abs(Math.sin(v.walk)) * 0.05 : 0;
     rig.body.rotation.set(0, 0, 0);
     rig.root.scale.setScalar(1);
+    const dance: DanceStyle | null = isPreview ? this.previewDance : (m && m.phase === 'over' && p.alive ? (item(p.look.dance || 'dance_hop').dance ?? 'hop') : null);
+    if (dance) {
+      const t = this.time;
+      if (dance === 'hop') rig.body.position.y = Math.abs(Math.sin(t * 6)) * 0.45;
+      else if (dance === 'spin') { rig.root.rotation.y = -p.aim + t * 7; rig.body.position.y = Math.abs(Math.sin(t * 7)) * 0.15; }
+      else if (dance === 'wiggle') { rig.body.rotation.x = Math.sin(t * 12) * 0.28; rig.legL.rotation.z = Math.sin(t * 12) * 0.4; rig.legR.rotation.z = -Math.sin(t * 12) * 0.4; }
+      else if (dance === 'flip') { const k = (t % 1.3) / 1.3, air = Math.min(1, k * 1.25); rig.body.position.y = Math.sin(air * Math.PI) * 1.1; rig.body.rotation.z = air * Math.PI * 2; }
+    }
     if (dead && p.how === 'shot') {
       const k = Math.min(1, since * 3);
       rig.body.rotation.z = k * 1.45;            // topple backwards

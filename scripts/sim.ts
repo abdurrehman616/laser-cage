@@ -1,11 +1,11 @@
 // Headless check: play many all-bot matches and report how they end.
 import { Match } from '../src/game/match';
-import { NPC_OUTFITS } from '../src/config';
+import { NPC_OUTFITS, ARENAS } from '../src/config';
 let rounds = 0, draws = 0, overs = 0, stuck = 0; const hows: Record<string, number> = {};
 for (let g = 0; g < 300; g++) {
   const n = 2 + (g % 5);
-  const seats = Array.from({ length: n }, (_, i) => ({ name: 'B' + i, color: '#f00', look: { outfit: NPC_OUTFITS[0], hat: 'hat_none', hair: '#000' }, human: false }));
-  const m = new Match('bots', seats, (['easy', 'normal', 'hard'] as const)[g % 3]);
+  const seats = Array.from({ length: n }, (_, i) => ({ name: 'B' + i, color: '#f00', look: { outfit: NPC_OUTFITS[0], hat: 'hat_none', hair: '#000', gun: 'gun_classic', fx: 'fx_spark', dance: 'dance_hop' }, human: false }));
+  const m = new Match('bots', seats, { diff: (['easy', 'normal', 'hard'] as const)[g % 3], arena: ARENAS[g % 3] });
   // seat 0 acts as an idle "human" stand-in: make it human but never moves
   m.players[0].human = true; delete m.players[0].bot;
   m.start();

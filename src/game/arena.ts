@@ -5,14 +5,26 @@ export interface Tile { q: number; r: number; x: number; z: number; ring: number
 
 const SQ3 = Math.sqrt(3);
 
-export function buildTiles(rings = ARENA.rings): Tile[] {
+export const hexKey = (q: number, r: number) => q + ',' + r;
+
+export function buildTiles(rings = ARENA.rings, holes: Set<string> = new Set()): Tile[] {
   const out: Tile[] = [];
   for (let q = -rings; q <= rings; q++) {
     for (let r = Math.max(-rings, -q - rings); r <= Math.min(rings, -q + rings); r++) {
+      if (holes.has(hexKey(q, r))) continue;
       out.push({ q, r, x: SQ3 * (q + r / 2), z: 1.5 * r, ring: (Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2, fall: 0 });
     }
   }
   return out;
+}
+
+/** The hex tile (axial q, r) under a world point. */
+export function hexAt(x: number, z: number): { q: number; r: number; ring: number } {
+  const q = x / SQ3 - z / 3, r = (2 * z) / 3, s = -q - r;
+  let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
+  const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) rq = -rr - rs; else if (dr > ds) rr = -rq - rs; else rs = -rq - rr;
+  return { q: rq + 0, r: rr + 0, ring: (Math.abs(rq) + Math.abs(rr) + Math.abs(rs)) / 2 };
 }
 
 /** Which ring of the hex grid a world point is on (0 = centre tile). */

@@ -17,6 +17,12 @@
     <symbol id="i-pause" viewBox="0 0 24 24"><path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 3.5L7 12l8.5 8.5 2.1-2.1L11.2 12l6.4-6.4z"/></symbol>
     <symbol id="i-bot" viewBox="0 0 24 24"><path fill="currentColor" d="M11 2h2v3h4a3 3 0 013 3v8a3 3 0 01-3 3H7a3 3 0 01-3-3V8a3 3 0 013-3h4V2zM8.5 10a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm7 0a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM9 15v1.5h6V15H9zM1 10h2v5H1zm20 0h2v5h-2zM8 20h8v2H8z"/></symbol>
+    <symbol id="i-gift" viewBox="0 0 24 24"><path fill="currentColor" d="M20 7h-2.2A3 3 0 0012 3.8 3 3 0 006.2 7H4a1 1 0 00-1 1v3a1 1 0 001 1h1v8a1 1 0 001 1h12a1 1 0 001-1v-8h1a1 1 0 001-1V8a1 1 0 00-1-1zm-5-2a1 1 0 110 2h-2a1 1 0 01-1 0 2 2 0 013-2zM9 5a2 2 0 013 2 1 1 0 01-1 0H9a1 1 0 010-2zm2 15H7v-8h4v8zm0-10H5V9h6v1zm6 10h-4v-8h4v8zm2-10h-6V9h6v1z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h4v4H4zm6 1h10v2H10zM4 10h4v4H4zm6 1h10v2H10zM4 16h4v4H4zm6 1h10v2H10z"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l3 6.6 7.2.7-5.4 4.9 1.6 7.1L12 17.6 5.6 21.3l1.6-7.1L1.8 9.3 9 8.6z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10V8a5 5 0 0110 0v2h1a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8a2 2 0 012-2h1zm2 0h6V8a3 3 0 00-6 0v2z"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 3.5L7 12l8.5 8.5 2.1-2.1L11.2 12l6.4-6.4z"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 3.5L17 12l-8.5 8.5-2.1-2.1L12.8 12 6.4 5.6z"/></symbol>
   </svg>
 
   <div id="app">
@@ -35,13 +41,17 @@
     </div>
     <div id="banner" class="off"></div>
     <div id="hint" hidden></div>
+    <div id="coach" hidden><b class="coachface">!</b><p id="coachText"></p></div>
     <div id="movepad" class="pad move" hidden><span>MOVE</span><div class="knob"></div></div>
     <div id="aimpad" class="pad aim" hidden><span>AIM</span><div class="knob"></div></div>
 
     <!-- Home -->
     <section id="home" class="screen">
       <header class="topbar">
-        <div class="coins"><b class="coin"></b><span id="coinCount">0</span></div>
+        <div class="tb-left">
+          <div class="lvl" aria-label="Level"><b class="lvlstar"><svg><use href="#i-star"/></svg><span id="lvlNum">1</span></b><span class="xpbar"><i id="xpFill"></i></span></div>
+          <div class="coins"><b class="coin"></b><span id="coinCount">0</span></div>
+        </div>
         <div class="tb-right">
           <button id="howBtn" class="gbtn sq blue" type="button" aria-label="How to play"><svg><use href="#i-help"/></svg></button>
           <button id="settingsBtn" class="gbtn sq blue" type="button" aria-label="Settings"><svg><use href="#i-gear"/></svg></button>
@@ -49,6 +59,10 @@
       </header>
       <div class="logo" aria-label="Laser Cage"><span class="l1">LASER</span><span class="l2">CAGE</span></div>
       <p id="statLine" class="statline"></p>
+      <div class="sidebtns">
+        <button id="dailyBtn" class="gbtn sq green side" type="button" aria-label="Daily reward"><svg><use href="#i-gift"/></svg><em class="dot" id="dailyDot" hidden>!</em></button>
+        <button id="missionsBtn" class="gbtn sq purple side" type="button" aria-label="Daily missions"><svg><use href="#i-list"/></svg><em class="dot" id="missionDot" hidden>0</em></button>
+      </div>
 
       <div class="dock">
         <div class="panel matchset">
@@ -61,7 +75,13 @@
             </div>
           </div>
           <div class="seg" id="segDiff"></div>
+          <div class="setrow arenarow">
+            <button id="arenaPrev" class="gbtn sq blue small" type="button" aria-label="Previous arena"><svg><use href="#i-left"/></svg></button>
+            <div class="arenaname"><span id="arenaName">THE CAGE</span><small id="arenaLock" hidden></small></div>
+            <button id="arenaNext" class="gbtn sq blue small" type="button" aria-label="Next arena"><svg><use href="#i-right"/></svg></button>
+          </div>
         </div>
+        <p id="nextUnlock" class="nextunlock"></p>
         <div class="dockrow">
           <button id="shopBtn" class="gbtn tile purple" type="button"><svg><use href="#i-bag"/></svg><span>SHOP</span></button>
           <button id="playBtn" class="gbtn yellow play" type="button"><span class="big">PLAY</span><span class="sub">VS BOTS</span></button>
@@ -92,12 +112,13 @@
         <span class="spacer"></span>
       </header>
       <div class="panel setpanel">
-        <label class="toggle"><span>Sound</span><input type="checkbox" id="optSound" /><i></i></label>
+        <label class="toggle"><span>Music</span><input type="checkbox" id="optMusic" /><i></i></label>
+        <label class="toggle"><span>Sound effects</span><input type="checkbox" id="optSound" /><i></i></label>
         <label class="toggle"><span>Vibration</span><input type="checkbox" id="optVibe" /><i></i></label>
         <label class="toggle"><span>Aim stick on the left</span><input type="checkbox" id="optSwap" /><i></i></label>
         <div class="setgroup"><span class="setlabel">GRAPHICS</span><div class="seg" id="segGfx"></div>
           <p class="fine">Auto switches to Low if your phone struggles. Low is the smoothest.</p></div>
-        <p class="fine center">Laser Cage v0.2</p>
+        <p class="fine center">Laser Cage v0.3</p>
       </div>
     </section>
 
@@ -138,10 +159,36 @@
           <div class="stat"><b id="stKills">0</b><span>HITS</span></div>
           <div class="stat gold"><b id="stCoins">+0</b><span>COINS</span></div>
         </div>
+        <div class="xpblock">
+          <div class="xprow"><span class="lvlstar small"><svg><use href="#i-star"/></svg><span id="resLvl">1</span></span><span class="xpbar big"><i id="resXpFill"></i></span><b id="resXp">+0 XP</b></div>
+          <div id="levelUps"></div>
+          <div id="missionDone"></div>
+        </div>
         <div class="row2">
           <button id="homeBtn" class="gbtn blue" type="button">HOME</button>
           <button id="againBtn" class="gbtn yellow" type="button">PLAY AGAIN</button>
         </div>
+      </div>
+    </section>
+
+    <!-- Daily reward -->
+    <section id="daily" class="screen modal" hidden>
+      <div class="panel card">
+        <h2 class="ribbon">DAILY REWARD</h2>
+        <p class="fine center">Come back every day. Day 7 is the big one!</p>
+        <div class="days" id="dayGrid"></div>
+        <button id="dailyClaim" class="gbtn yellow wide" type="button">CLAIM</button>
+        <button id="dailyClose" class="gbtn blue wide" type="button">CLOSE</button>
+      </div>
+    </section>
+
+    <!-- Daily missions -->
+    <section id="missions" class="screen modal" hidden>
+      <div class="panel card">
+        <h2 class="ribbon">MISSIONS</h2>
+        <p class="fine center" id="missionReset">New missions every day</p>
+        <div class="mlist" id="missionList"></div>
+        <button id="missionsClose" class="gbtn blue wide" type="button">CLOSE</button>
       </div>
     </section>
 

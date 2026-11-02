@@ -28,6 +28,9 @@ export function botPlanRound(m: Match, b: Player) {
   foes.sort((p, q) => Math.hypot(p.seenX - b.x, p.seenZ - b.z) - Math.hypot(q.seenX - b.x, q.seenZ - b.z));
   const human = foes.find(p => p.human);
   b.bot.foe = human && Math.random() < 0.4 ? human : foes[0];
+  // first-ever match: bots leave you alone in round 1 so you can learn the controls
+  if (m.tutorial && m.round === 1 && b.bot.foe.human) b.bot.foe = foes.find(f => !f.human) ?? null;
+  if (!b.bot.foe) { b.target = { x: b.x, z: b.z }; b.bot.wantAim = Math.atan2(-b.z, -b.x) + rand(-0.4, 0.4); b.bot.replan = 99; return; }
   const g = predict(m, b.bot.foe, d.guess);
 
   // pick where to stand: off the lines others could aim along, away from the dropping ring

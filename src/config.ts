@@ -26,6 +26,9 @@ export const LASER = {
   suddenDeathGrow: 0.14,   // extra width per sudden-death round
 };
 
+// Tutorial (first match) runs slower so new players can read the coach
+export const TUTORIAL_TIMING = { intro: 3.2, hideFirst: 11, hide: 7 };
+
 export const REWARDS = {
   perRoundSurvived: 10,
   perKill: 15,
@@ -45,7 +48,9 @@ export const BOT_NAMES = ['Rook', 'Vex', 'Moss', 'Juno', 'Kade', 'Pixel', 'Nova'
 export const SEAT_COLORS = ['#ff4d6d', '#ffb547', '#5ef0c0', '#7fb8ff', '#d58bff', '#ff8a4d'];
 
 // ---------- Cosmetics ----------
-export type Slot = 'laser' | 'outfit' | 'hat' | 'floor';
+export type Slot = 'laser' | 'gun' | 'outfit' | 'hat' | 'fx' | 'dance' | 'floor';
+export type FxStyle = 'spark' | 'confetti' | 'pixels' | 'coins' | 'smoke';
+export type DanceStyle = 'hop' | 'spin' | 'wiggle' | 'flip';
 
 export interface Item {
   id: string;
@@ -60,6 +65,10 @@ export interface Item {
   hat?: 'none' | 'cap' | 'crown' | 'band' | 'helmet';
   hatColor?: string;
   floor?: { base: string; inner: string; mesh: string; glow?: string };
+  gun?: { body: string; glow?: string; metal?: number };
+  fx?: FxStyle;
+  dance?: DanceStyle;
+  unlockLevel?: number;   // given free when you reach this level (or buy it earlier)
 }
 
 export const ITEMS: Item[] = [
@@ -71,6 +80,13 @@ export const ITEMS: Item[] = [
   { id: 'laser_plasma',  slot: 'laser', name: 'Plasma',  price: 500, color: '#e3a2ff' },
   { id: 'laser_solar',   slot: 'laser', name: 'Solar',   price: 800, color: '#fff27a' },
   { id: 'laser_rainbow', slot: 'laser', name: 'Rainbow', price: 1500, color: '#ffffff', rainbow: true, premium: true },
+  // Gun skins
+  { id: 'gun_classic', slot: 'gun', name: 'Classic', price: 0,    gun: { body: '#14191e', metal: 0.5 } },
+  { id: 'gun_camo',    slot: 'gun', name: 'Camo',    price: 300,  gun: { body: '#4d6b35', metal: 0.1 }, unlockLevel: 4 },
+  { id: 'gun_candy',   slot: 'gun', name: 'Candy',   price: 400,  gun: { body: '#ff8fc8', metal: 0.2 } },
+  { id: 'gun_neon',    slot: 'gun', name: 'Neon',    price: 700,  gun: { body: '#1a2a3a', glow: '#3ff3ff', metal: 0.3 } },
+  { id: 'gun_gold',    slot: 'gun', name: 'Gold',    price: 1200, gun: { body: '#ffc93a', metal: 0.9 } },
+  { id: 'gun_dragon',  slot: 'gun', name: 'Dragon',  price: 1800, gun: { body: '#b3122a', glow: '#ffb000', metal: 0.6 }, premium: true },
   // Outfits
   { id: 'fit_classic',   slot: 'outfit', name: 'Classic',   price: 0,    shirt: '#2f5fb3', pants: '#1f3554', trim: '#ffffff' },
   { id: 'fit_desert',    slot: 'outfit', name: 'Desert',    price: 300,  shirt: '#c79a5b', pants: '#6b5232', trim: '#3b2d1c' },
@@ -83,6 +99,17 @@ export const ITEMS: Item[] = [
   { id: 'hat_band',  slot: 'hat', name: 'Headband', price: 300,  hat: 'band', hatColor: '#ffb547' },
   { id: 'hat_helmet',slot: 'hat', name: 'Helmet',   price: 700,  hat: 'helmet', hatColor: '#3d4a55' },
   { id: 'hat_crown', slot: 'hat', name: 'Crown',    price: 1200, hat: 'crown', hatColor: '#ffd23f', premium: true },
+  // Elimination effects (what your hits look like)
+  { id: 'fx_spark',    slot: 'fx', name: 'Sparks',   price: 0,   fx: 'spark' },
+  { id: 'fx_confetti', slot: 'fx', name: 'Confetti', price: 400, fx: 'confetti', unlockLevel: 8 },
+  { id: 'fx_pixels',   slot: 'fx', name: 'Pixels',   price: 600, fx: 'pixels' },
+  { id: 'fx_smoke',    slot: 'fx', name: 'Smoke Puff', price: 600, fx: 'smoke' },
+  { id: 'fx_coins',    slot: 'fx', name: 'Coin Rain', price: 1500, fx: 'coins', premium: true },
+  // Victory dances
+  { id: 'dance_hop',    slot: 'dance', name: 'Hop',    price: 0,   dance: 'hop' },
+  { id: 'dance_spin',   slot: 'dance', name: 'Spin',   price: 400, dance: 'spin', unlockLevel: 10 },
+  { id: 'dance_wiggle', slot: 'dance', name: 'Wiggle', price: 500, dance: 'wiggle' },
+  { id: 'dance_flip',   slot: 'dance', name: 'Backflip', price: 1000, dance: 'flip', premium: true },
   // Floors
   { id: 'floor_steel', slot: 'floor', name: 'Steel Mesh', price: 0,    floor: { base: '#7d8a92', inner: '#aab4ba', mesh: '#24323a' } },
   { id: 'floor_lava',  slot: 'floor', name: 'Lava Rock',  price: 800,  floor: { base: '#3b2622', inner: '#57352c', mesh: '#ff5a1f', glow: '#ff5a1f' } },
@@ -91,8 +118,55 @@ export const ITEMS: Item[] = [
 ];
 
 export const DEFAULT_EQUIP: Record<Slot, string> = {
-  laser: 'laser_crimson', outfit: 'fit_classic', hat: 'hat_none', floor: 'floor_steel',
+  laser: 'laser_crimson', gun: 'gun_classic', outfit: 'fit_classic', hat: 'hat_none', fx: 'fx_spark', dance: 'dance_hop', floor: 'floor_steel',
 };
+
+// ---------- Arenas ----------
+export interface Arena {
+  id: string; name: string; unlockLevel: number;
+  holes: [number, number][];   // hex tiles (q, r) missing from the floor
+  sky: string; ground: string; groundDot: [string, string]; rim: string; well: string; pit: string;
+  post: string; fence: string; hemiSky: string; hemiGround: string; sun: string;
+}
+export const ARENAS: Arena[] = [
+  { id: 'cage', name: 'The Cage', unlockLevel: 1, holes: [],
+    sky: '#14205a', ground: '#2f6046', groundDot: ['rgba(20,50,34,.35)', 'rgba(80,130,90,.25)'], rim: '#46545c', well: '#0e1f1c', pit: '#020605',
+    post: '#12171b', fence: 'rgba(190,205,212,.85)', hemiSky: '#cfe8ff', hemiGround: '#1d3a2c', sun: '#fff3df' },
+  { id: 'volcano', name: 'Volcano Pit', unlockLevel: 3,
+    holes: [[2, 0], [0, 2], [-2, 2], [-2, 0], [0, -2], [2, -2]],   // six gaps in the middle ring
+    sky: '#2a0d12', ground: '#3a2622', groundDot: ['rgba(20,8,6,.45)', 'rgba(255,110,40,.18)'], rim: '#5a3a30', well: '#3a1208', pit: '#ff5a1f',
+    post: '#2a0f0a', fence: 'rgba(255,140,80,.8)', hemiSky: '#ffd2b0', hemiGround: '#5a1a0a', sun: '#ffb27a' },
+  { id: 'sky', name: 'Sky Deck', unlockLevel: 6,
+    holes: [[0, 0]],                                              // no centre tile: the final platform is a ring
+    sky: '#62b6ff', ground: '#eaf6ff', groundDot: ['rgba(170,205,235,.5)', 'rgba(255,255,255,.6)'], rim: '#c9d6e3', well: '#7fb8ff', pit: '#bfe3ff',
+    post: '#e9eef3', fence: 'rgba(255,255,255,.9)', hemiSky: '#ffffff', hemiGround: '#8fb6e0', sun: '#ffffff' },
+];
+export const arena = (id: string) => ARENAS.find(a => a.id === id) ?? ARENAS[0];
+
+// ---------- Progression ----------
+export const XP = { perMatch: 20, perRound: 15, perKill: 25, win: 50 };
+/** XP needed to go from `level` to `level + 1`. */
+export const xpToNext = (level: number) => 100 + 50 * (level - 1);
+export const MAX_LEVEL = 50;
+/** Coins for reaching a level, plus any item or arena that unlocks there. */
+export const levelCoins = (level: number) => 40 + 10 * level;
+
+export const DAILY_REWARDS = [50, 75, 100, 150, 200, 300, 500];   // 7-day login streak
+
+export type MissionKind = 'play' | 'win' | 'hits' | 'rounds' | 'hardWin' | 'final' | 'bots5';
+export interface MissionDef { id: string; kind: MissionKind; goal: number; reward: number; text: string }
+export const MISSION_POOL: MissionDef[] = [
+  { id: 'play3',   kind: 'play',    goal: 3, reward: 60,  text: 'Play 3 matches' },
+  { id: 'play5',   kind: 'play',    goal: 5, reward: 100, text: 'Play 5 matches' },
+  { id: 'win1',    kind: 'win',     goal: 1, reward: 80,  text: 'Win a match' },
+  { id: 'win2',    kind: 'win',     goal: 2, reward: 140, text: 'Win 2 matches' },
+  { id: 'hits3',   kind: 'hits',    goal: 3, reward: 70,  text: 'Hit 3 players' },
+  { id: 'hits6',   kind: 'hits',    goal: 6, reward: 120, text: 'Hit 6 players' },
+  { id: 'rounds8', kind: 'rounds',  goal: 8, reward: 60,  text: 'Survive 8 rounds' },
+  { id: 'hard1',   kind: 'hardWin', goal: 1, reward: 200, text: 'Win on Hard' },
+  { id: 'final1',  kind: 'final',   goal: 1, reward: 90,  text: 'Reach the final platform' },
+  { id: 'bots5',   kind: 'bots5',   goal: 1, reward: 60,  text: 'Play a match with 5 bots' },
+];
 
 export const item = (id: string) => ITEMS.find(i => i.id === id)!;
 

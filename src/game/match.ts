@@ -1,13 +1,13 @@
 // The rules of a match, with no drawing code. The renderer and UI only read this state,
 // so the same rules can later run on the online game server.
-import { ARENA, LASER, PLAYER, TIMING, Difficulty } from '../config';
-import { Tile, buildTiles, ringAt, rayToCage } from './arena';
+import { ARENA, LASER, PLAYER, TIMING, TUTORIAL_TIMING, Difficulty, Arena, ARENAS } from '../config';
+import { Tile, buildTiles, hexAt, hexKey, rayToCage } from './arena';
 import { botAim, botPlanRound, botStep } from './bots';
 
 export type Mode = 'bots';   // 'online' joins later, using these same rules on a server
 export type Phase = 'intro' | 'hide' | 'lock' | 'fire' | 'drop' | 'over';
 
-export interface Look { outfit: string; hat: string; hair: string }
+export interface Look { outfit: string; hat: string; hair: string; gun: string; fx: string; dance: string }
 
 export interface Player {
   id: number;
@@ -35,7 +35,7 @@ export interface Shot { from: Player; x: number; z: number; hit: Player | null }
 export interface SeatSpec { name: string; color: string; rainbow?: boolean; look: Look; human: boolean }
 
 export type MatchEvent =
-  | { type: 'round'; round: number; final: boolean }
+  | { type: 'round'; round: number; final: boolean; meAlive: boolean }
   | { type: 'phase'; phase: Phase }
   | { type: 'tick'; sec: number }
   | { type: 'lock' }
@@ -44,10 +44,16 @@ export type MatchEvent =
   | { type: 'sudden'; level: number }
   | { type: 'over' };
 
+export interface MatchOptions { diff?: Difficulty; arena?: Arena; tutorial?: boolean }
+
 export class Match {
   mode: Mode;
   diff: Difficulty;
-  tiles: Tile[] = buildTiles();
+  arena: Arena;
+  tutorial: boolean;
+  holes: Set<string>;
+  tiles: Tile[];
+  reachedFinal = false;     // was the local player alive on the final platform?
   players: Player[] = [];
   ring = ARENA.rings;
   round = 0;
@@ -60,13 +66,15 @@ export class Match {
   private lastSec = 99;
   private listeners: ((e: MatchEvent) => void)[] = [];
 
-  constructor(mode: Mode, seats: SeatSpec[], diff: Difficulty = 'normal') {
-    this.mode = mode; this.diff = diff;
+  constructor(mode: Mode, seats: SeatSpec[], opts: MatchOptions = {}) {
+    this.mode = mode; this.diff = opts.diff ?? 'normal'; this.arena = opts.arena ?? ARENAS[0]; this.tutorial = !!opts.tutorial;
+    this.holes = new Set(this.arena.holes.map(([q, r]) => hexKey(q, r)));
+    this.tiles = buildTiles(ARENA.rings, this.holes);
     const n = seats.length;
     seats.forEach((s, i) => {
       const a = Math.PI / 2 + (i * 2 * Math.PI) / n;   // seat 0 starts nearest the camera
-      let rad = 4.6, x = 0, z = 0;
-      do { x = Math.cos(a) * rad; z = Math.sin(a) * rad; rad -= 0.2; } while (!this.onFloor(x, z));
+      let rad = 4.6, x = 0, z = 0, tries = 0;
+      do { x = Math.cos(a + tries * 0.13) * rad; z = Math.sin(a + tries * 0.13) * rad; rad -= 0.2; tries++; if (rad < 1) rad = 4.6; } while (!this.onFloor(x, z) && tries < 80);
       this.players.push({
         id: i, name: s.name, color: s.color, rainbow: !!s.rainbow, look: s.look, human: s.human,
         x, z, aim: Math.atan2(-z, -x), alive: true, how: null, killedBy: null, kills: 0, survived: 0, diedAt: 0,
@@ -82,7 +90,7 @@ export class Match {
   start() { this.nextRound(); }
 
   // ---------- queries ----------
-  onFloor(x: number, z: number) { return ringAt(x, z) <= this.ring; }
+  onFloor(x: number, z: number) { const h = hexAt(x, z); return h.ring <= this.ring && !this.holes.has(hexKey(h.q, h.r)); }
   get alive() { return this.players.filter(p => p.alive); }
   get me() { return this.players[0]; }
   get final() { return this.ring <= ARENA.finalRing; }
@@ -132,8 +140,9 @@ export class Match {
   private nextRound() {
     this.round++; this.shots = [];
     for (const p of this.players) { p.target = null; p.seenX = p.x; p.seenZ = p.z; }
-    this.setPhase('intro', TIMING.intro);
-    this.emit({ type: 'round', round: this.round, final: this.final });
+    this.setPhase('intro', this.tutorial ? TUTORIAL_TIMING.intro : TIMING.intro);
+    if (this.final && this.me?.alive) this.reachedFinal = true;
+    this.emit({ type: 'round', round: this.round, final: this.final, meAlive: !!this.me?.alive });
   }
 
   private doLock() { this.setPhase('lock', TIMING.lock); this.emit({ type: 'lock' }); }
@@ -205,7 +214,8 @@ export class Match {
       case 'intro':
         if (this.t <= 0) {
           for (const b of this.alive) if (b.bot) botPlanRound(this, b);
-          this.setPhase('hide', this.round === 1 ? TIMING.hideFirst : TIMING.hide);
+          const T = this.tutorial ? TUTORIAL_TIMING : TIMING;
+          this.setPhase('hide', this.round === 1 ? T.hideFirst : T.hide);
         }
         break;
       case 'hide':

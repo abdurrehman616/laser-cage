@@ -34,10 +34,12 @@ npm run android:open   # opens Android Studio; press Run with your phone plugged
 | `src/render/models.ts` | Blocky characters, outfits, hats |
 | `src/main.ts` | Menus, shop, input, HUD |
 | `src/save.ts` | Coins, owned items and settings saved on the phone |
+| `src/progress.ts` | Levels and XP, daily login rewards, daily missions |
 | `scripts/sim.ts` | Plays hundreds of bot matches headlessly to check balance: `npx tsx scripts/sim.ts` |
 
 ## Roadmap
 1. ✅ Sprint 1: real project, 3D look, menus, shop with coins, sound, Android packaging
-2. Sprint 2: rewarded ads, Google Play Billing (gems, VIP items), analytics, crash reporting
-3. Sprint 3: online multiplayer (Colyseus server, regions, bots fill empty slots)
-4. Closed testing on Play Console → soft launch
+2. ✅ Sprint 2: levels & XP, daily login rewards, daily missions, guided first match, Volcano Pit and Sky Deck arenas, music, gun skins, hit effects, victory dances
+3. Sprint 3: rewarded ads, Google Play Billing (gems, VIP items)
+4. Sprint 4: accounts, cloud save, analytics, crash reporting
+5. Sprint 5–6: online multiplayer (Colyseus server, regions, bots fill empty slots)

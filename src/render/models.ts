@@ -25,6 +25,7 @@ const GEO = {
   gun: box(0.56, 0.11, 0.11),
   grip: box(0.08, 0.16, 0.08),
   tip: box(0.07, 0.09, 0.09),
+  stripe: box(0.46, 0.025, 0.12),
   capTop: box(0.46, 0.12, 0.46),
   capBrim: box(0.26, 0.04, 0.3),
   band: box(0.45, 0.07, 0.43),
@@ -84,9 +85,14 @@ export function buildCharacter(look: Look, laserColor: string): CharacterRig {
   const armL = add(body, GEO.arm, shirt, 0.24, 0.93, -0.2); armL.rotation.y = -0.3;
   const armR = add(body, GEO.arm, shirt, 0.24, 0.93, 0.2); armR.rotation.y = 0.3;
 
-  const gunM = M('#14191e', { metalness: 0.5, roughness: 0.45 });
+  const g = item(look.gun || 'gun_classic').gun!;
+  const gunM = M(g.body, { metalness: g.metal ?? 0.5, roughness: 0.4,
+    ...(g.glow ? { emissive: new THREE.Color(g.glow), emissiveIntensity: 0.35 } : {}) });
   add(body, GEO.gun, gunM, 0.62, 0.95, 0);
   add(body, GEO.grip, gunM, 0.46, 0.86, 0);
+  if (g.glow) {   // glowing stripe along the barrel
+    add(body, GEO.stripe, M(g.glow, { emissive: new THREE.Color(g.glow), emissiveIntensity: 1.4 }), 0.64, 1.005, 0);
+  }
   const tipMat = M(laserColor, { emissive: new THREE.Color(laserColor), emissiveIntensity: 1.2 });
   add(body, GEO.tip, tipMat, 0.92, 0.95, 0);
   const gunTip = new THREE.Object3D(); gunTip.position.set(0.96, 0.95, 0); body.add(gunTip);
