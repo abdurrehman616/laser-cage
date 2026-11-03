@@ -8,14 +8,15 @@ import { addXp, arenaUnlocked, claimDaily, claimMission, dailyAvailable, matchXp
 import { EXCHANGE, PRODUCTS, SPIN, NOADS_DAILY_GEMS, STARTER } from './config';
 import { track, diagnostics, recentEvents } from './analytics';
 import { accountId, cloudState, initCloud, onCloudState } from './cloud';
-import { APP_VERSION } from './config';
+import { APP_VERSION, ONLINE } from './config';
+import { OnlineSession } from './net/online';
 import { adSpinsLeft, adsLeftToday, buyProduct, exchange, freeSpinReady, initAds, initStore, noAdsDaily, priceOf, privacyOptionsRequired, restorePurchases, rewardedAd, showPrivacyOptions, spin } from './monetize';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const view = new ArenaView($('view') as HTMLCanvasElement, $('labels'));
 
 // ---------------- state ----------------
-type Screen = 'home' | 'shop' | 'settings' | 'howto' | 'daily' | 'missions' | 'spin' | 'game' | 'pause' | 'result';
+type Screen = 'home' | 'shop' | 'settings' | 'howto' | 'daily' | 'missions' | 'spin' | 'online' | 'game' | 'pause' | 'result';
 let screen: Screen = 'home';
 let match: Match | null = null;
 let paused = false;
@@ -24,7 +25,9 @@ const keys = new Set<string>();
 const diffMult: Record<Difficulty, number> = { easy: 1, normal: 1.5, hard: 2 };
 let dailyShown = false;
 
-const SCREENS: Screen[] = ['home', 'shop', 'settings', 'howto', 'daily', 'missions', 'spin', 'pause', 'result'];
+const SCREENS: Screen[] = ['home', 'shop', 'settings', 'howto', 'daily', 'missions', 'spin', 'online', 'pause', 'result'];
+let session: OnlineSession | null = null;
+function endSession() { session?.leave(); session = null; $('pingTag').hidden = true; $('netlost').hidden = true; }
 function show(s: Screen) {
   screen = s;
   for (const id of SCREENS) $(id).hidden = id !== s;
@@ -33,6 +36,7 @@ function show(s: Screen) {
   view.menu = !inGame;
   view.shot = inGame ? 0 : s === 'shop' ? 2 : 1;
   view.previewDance = null;
+  if (!inGame && s !== 'online') endSession();
   if (!inGame) { idleArena(); refreshHome(); }
   if (s !== 'game') setCoach(null);
   if (s === 'game') updateControls();
@@ -75,6 +79,8 @@ function refreshHome() {
   $('dailyDot').hidden = !dailyAvailable() || !profile.tutorialDone;
   const ready = missionsReady(); $('missionDot').hidden = !ready; $('missionDot').textContent = String(ready);
   $('dailyBtn').hidden = $('missionsBtn').hidden = !profile.tutorialDone;
+  const ob = $('onlineBtn'); ob.classList.toggle('locked', !ONLINE.enabled); ob.classList.toggle('blue', ONLINE.enabled);
+  const tag = ob.querySelector('em'); if (tag) tag.hidden = ONLINE.enabled;
   // arena picker
   const a = arena(profile.arena), unlocked = arenaUnlocked(a.id);
   $('arenaName').textContent = a.name.toUpperCase();
@@ -126,7 +132,46 @@ $('playBtn').onclick = () => {
   if (!arenaUnlocked(profile.arena)) { sfx.denied(); toast(`Reach level ${arena(profile.arena).unlockLevel} to play ${arena(profile.arena).name}`); return; }
   startMatch(false);
 };
-$('onlineBtn').onclick = () => { unlockAudio(); sfx.denied(); toast('Online battles are coming soon!'); };
+$('onlineBtn').onclick = () => {
+  unlockAudio(); sfx.click();
+  if (!ONLINE.enabled) { sfx.denied(); toast('Online battles are coming soon!'); return; }
+  if (!profile.tutorialDone) { toast('Play the tutorial first!'); return; }
+  openOnline();
+};
+function netStatus(title: string, sub = '', seats = 0) {
+  $('netTitle').textContent = title; $('netSub').textContent = sub || '\u00a0';
+  $('netSeats').innerHTML = Array.from({ length: 6 }, (_, i) => `<i class="${i < seats ? 'on' : ''}"></i>`).join('');
+}
+function openOnline() {
+  endSession();
+  show('online');
+  netStatus('CONNECTING…');
+  const l = item(profile.equip.laser);
+  const me = session = new OnlineSession({ name: profile.name, color: l.color!, rainbow: !!l.rainbow, look: myLook() }, {
+    status: st => {
+      if (session !== me) return;
+      if (st.kind === 'waking') netStatus('WAKING UP THE SERVER…', `The free server naps when nobody's playing. Up to a minute (${st.seconds}s)`);
+      else if (st.kind === 'connecting') netStatus('CONNECTING…');
+      else if (st.kind === 'queue') netStatus('FINDING PLAYERS', st.players >= st.max ? 'Starting!' : `${st.players} of ${st.max} here · bots fill the rest in ${st.startsIn}s`, st.players);
+      else if (st.kind === 'reconnecting') { $('netlost').hidden = false; }
+      else if (st.kind === 'error') { if (screen === 'online') { netStatus('CAN\'T CONNECT', st.message); ($('netSpin')).hidden = true; } else { toast(st.message); show('home'); } }
+    },
+    start: (m, resumed) => {
+      if (session !== me) return;
+      $('netlost').hidden = true;
+      if (resumed) return;
+      ($('netSpin')).hidden = false;
+      beginMatch(m);
+      track('match_start', { arena: m.arena.id, bots: m.players.length - 1, diff: 'online', tutorial: false });
+      $('pingTag').hidden = false;
+    },
+    lost: () => { if (session !== me) return; toast('Lost connection to the match.'); show('home'); },
+    ping: ms => { const t = $('pingTag'); t.textContent = `● ${ms}ms`; t.className = 'badge ping ' + (ms < 120 ? 'good' : ms < 250 ? 'ok' : 'bad'); },
+  });
+  ($('netSpin')).hidden = false;
+  me.connect();
+}
+$('netCancel').onclick = () => { sfx.click(); show('home'); };
 document.querySelectorAll('.back').forEach(b => b.addEventListener('click', () => { sfx.click(); show('home'); }));
 $('settingsBtn').onclick = () => {
   unlockAudio(); sfx.click();
@@ -135,6 +180,7 @@ $('settingsBtn').onclick = () => {
   seg('segGfx', ['auto', 'high', 'low'], () => profile.gfx, v => { profile.gfx = v; save(); applyGfx(); }, ['AUTO', 'HIGH', 'LOW']);
   $('privacyBtn').hidden = !privacyOptionsRequired;
   refreshAccount();
+  ($('optName') as HTMLInputElement).value = profile.name;
   show('settings');
 };
 function refreshAccount() {
@@ -153,6 +199,11 @@ $('reportBtn').onclick = async () => {
   catch { toast('Email codespacelab9@gmail.com and describe the problem'); }
   track('bug_report');
 };
+$('optName').addEventListener('change', e => {
+  const v = (e.target as HTMLInputElement).value.replace(/[^A-Za-z0-9 _-]/g, '').trim().slice(0, 12);
+  if (v.length >= 3) { profile.name = v; save(); toast('Name saved'); } else toast('Use 3 to 12 letters or numbers');
+  (e.target as HTMLInputElement).value = profile.name;
+});
 $('restoreBtn').onclick = async () => { sfx.click(); toast(await restorePurchases()); refreshHome(); };
 $('privacyBtn').onclick = () => { sfx.click(); showPrivacyOptions(); };
 $('optSwap').onchange = e => { profile.swapSticks = (e.target as HTMLInputElement).checked; save(); applySwap(); };
@@ -426,16 +477,23 @@ function buildSeats(bots: number): SeatSpec[] {
 }
 
 const PHASE_LABEL: Record<string, string> = { intro: 'REMEMBER!', hide: 'HIDE & AIM', lock: 'LOCKED', fire: 'FIRE!', drop: 'FLOOR DROP', over: '' };
-let lastSetup = { tutorial: false };
+let lastSetup = { tutorial: false, online: false };
 
 function startMatch(tutorial: boolean) {
-  lastSetup = { tutorial };
-  view.clearPreview(); $('labels').innerHTML = '';
   const ar = arena(tutorial ? 'cage' : currentArena());
-  match = new Match('bots', buildSeats(tutorial ? 2 : setup.bots), { diff: tutorial ? 'easy' : setup.diff, arena: ar, tutorial });
-  const m = match;
-  coach.step = 0; coach.aimed = false;
+  const m = new Match('bots', buildSeats(tutorial ? 2 : setup.bots), { diff: tutorial ? 'easy' : setup.diff, arena: ar, tutorial });
   track('match_start', { arena: ar.id, bots: m.players.length - 1, diff: m.diff, tutorial });
+  beginMatch(m);
+  m.start();
+}
+
+/** Shared by offline and online matches: hook the HUD, sounds and banners to a match. */
+function beginMatch(m: Match) {
+  view.clearPreview(); $('labels').innerHTML = '';
+  match = m;
+  lastSetup = { tutorial: m.tutorial, online: m.online };
+  coach.step = 0; coach.aimed = false;
+  const ar = m.arena;
   view.setArena(ar);
   view.setMatch(m); view.setFloor(profile.equip.floor);
   m.on(e => {
@@ -484,13 +542,13 @@ function startMatch(tutorial: boolean) {
   paused = false;
   show('game');
   view.snapCamera();
-  m.start();
 }
 $('pauseBtn').onclick = () => { sfx.click(); pause(); };
 $('resumeBtn').onclick = () => { sfx.click(); paused = false; show('game'); };
+$('pauseBtn').addEventListener('click', () => { if (match?.online) paused = false; });
 $('quitBtn').onclick = () => { sfx.click(); paused = false; show('home'); };
 $('homeBtn').onclick = () => { sfx.click(); show('home'); };
-$('againBtn').onclick = () => { sfx.click(); if (!arenaUnlocked(currentArena())) return show('home'); startMatch(lastSetup.tutorial && !profile.tutorialDone); };
+$('againBtn').onclick = () => { sfx.click(); if (lastSetup.online) return openOnline(); if (!arenaUnlocked(currentArena())) return show('home'); startMatch(lastSetup.tutorial && !profile.tutorialDone); };
 function pause() { if (!match || match.phase === 'over' || screen !== 'game') return; paused = true; show('pause'); }
 
 function chips() {
@@ -529,7 +587,8 @@ function results(m: Match) {
   updateControls();
   const me = m.me, place = m.placeOf(me), kills = me.kills;
   const won = me.alive && m.alive.length === 1;
-  let coins = Math.round((REWARDS.perMatch + me.survived * REWARDS.perRoundSurvived + kills * REWARDS.perKill + (won ? REWARDS.win : 0)) * diffMult[m.diff]);
+  let coins = Math.round((REWARDS.perMatch + me.survived * REWARDS.perRoundSurvived + kills * REWARDS.perKill + (won ? REWARDS.win : 0)) * diffMult[m.diff] * (m.online ? 1.3 : 1));
+  if (m.online) { profile.online.matches++; if (won) profile.online.wins++; }
   const firstTime = m.tutorial && !profile.tutorialDone;
   if (firstTime) { coins += 100; profile.tutorialDone = true; track('tutorial_complete', { won }); }
   const sub = firstTime ? 'Tutorial complete! Here are 100 bonus coins.'
@@ -543,14 +602,14 @@ function results(m: Match) {
 
   // XP and levels
   const startFrac = profile.level >= MAX_LEVEL ? 1 : profile.xp / xpToNext(profile.level);
-  const xp = matchXp({ rounds: me.survived, kills, won, diff: m.diff });
+  const xp = Math.round(matchXp({ rounds: me.survived, kills, won, diff: m.diff }) * (m.online ? 1.3 : 1));
   const ups = addXp(xp);
   track('match_end', { arena: m.arena.id, diff: m.diff, bots: m.players.length - 1, won, place, kills, rounds: m.round, coins, xp });
   for (const u of ups) track('level_up', { level: u.level });
   const done = m.tutorial ? [] : trackMatch({ won, kills, rounds: me.survived, diff: m.diff, reachedFinal: m.reachedFinal, bots: m.players.length - 1 });
 
   const t = $('resTitle'); t.textContent = won ? 'VICTORY!' : 'ELIMINATED'; t.className = 'ribbon ' + (won ? 'win' : 'lose');
-  $('resLabel').textContent = `${m.arena.name.toUpperCase()} · ${m.diff.toUpperCase()}`;
+  $('resLabel').textContent = `${m.arena.name.toUpperCase()} · ${m.online ? 'ONLINE' : m.diff.toUpperCase()}`;
   $('resSub').textContent = sub;
   $('stPlace').textContent = ord(place);
   $('stKills').textContent = String(kills);
@@ -674,7 +733,8 @@ function stickToWorld(sx: number, sy: number) {
 function frame(now: number) {
   const realDt = Math.min(0.25, (now - last) / 1000); last = now;
   watchSpeed(realDt);
-  if (match && !paused && screen === 'game') {
+  const onlineRunning = !!match?.online && (screen === 'game' || screen === 'pause');
+  if (match && (onlineRunning || (!paused && screen === 'game'))) {
     acc += realDt;
     const kx = (+keys.has('d') || +keys.has('arrowright')) - (+keys.has('a') || +keys.has('arrowleft'));
     const kz = (+keys.has('s') || +keys.has('arrowdown')) - (+keys.has('w') || +keys.has('arrowup'));
@@ -686,6 +746,7 @@ function frame(now: number) {
       acc -= STEP;
     }
     coachTick();
+    session?.frame(realDt);
     if (match) $('barFill').style.transform = `scaleX(${Math.max(0, match.t / match.tt)})`;
   } else if (match && screen === 'result') {
     match.update(realDt);   // let falling tiles / effects / the winner's dance play behind the results card

@@ -3,12 +3,23 @@
   "private": true,
   "version": "0.1.0",
   "description": "Online match server for Laser Cage",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/index.js",
     "start": "node dist/index.js",
-    "dev": "npm run build && npm start"
+    "dev": "npm run build && npm start",
+    "typecheck": "tsc -p .",
+    "test": "npm run build && node test/run.mjs"
   },
-  "dependencies": { "ws": "8.22.0" },
-  "devDependencies": { "esbuild": "0.28.2", "@types/ws": "8.18.1" }
+  "dependencies": {
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/ws": "8.18.1",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  }
 }

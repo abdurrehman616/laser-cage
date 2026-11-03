@@ -32,6 +32,9 @@ export interface Profile {
   spin: { date: string; freeUsed: boolean; adSpins: number };
   noAdsGems: string;            // date the No-Ads daily gems were last given
   tokens: string[];             // purchase tokens already granted (avoid double rewards)
+  // online (Sprint 5)
+  name: string;
+  online: { matches: number; wins: number };
 }
 
 const KEY = 'lasercage.profile.v1';
@@ -50,6 +53,7 @@ function fresh(): Profile {
     lastBots: 3, lastDiff: 'normal',
     gems: 0, noAds: false, starterBought: false,
     ads: { date: '', count: 0 }, spin: { date: '', freeUsed: false, adSpins: 0 }, noAdsGems: '', tokens: [],
+    name: 'Player' + Math.floor(1000 + Math.random() * 9000), online: { matches: 0, wins: 0 },
   };
 }
 

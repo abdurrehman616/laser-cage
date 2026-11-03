@@ -36,6 +36,7 @@
       <div class="hudrow">
         <span id="roundTag" class="badge round">ROUND 1</span>
         <span id="phaseTag" class="badge phase">GET READY</span>
+        <span id="pingTag" class="badge ping" hidden>● 0</span>
         <button id="pauseBtn" class="gbtn sq blue" type="button" aria-label="Pause"><svg><use href="#i-pause"/></svg></button>
       </div>
       <div id="bar"><i id="barFill"></i></div>
@@ -123,6 +124,10 @@
         <label class="toggle"><span>Aim stick on the left</span><input type="checkbox" id="optSwap" /><i></i></label>
         <div class="setgroup"><span class="setlabel">GRAPHICS</span><div class="seg" id="segGfx"></div>
           <p class="fine">Auto switches to Low if your phone struggles. Low is the smoothest.</p></div>
+        <div class="setgroup">
+          <span class="setlabel">PLAYER NAME</span>
+          <input id="optName" class="namefield" type="text" maxlength="12" autocomplete="off" spellcheck="false" />
+        </div>
         <div class="setgroup acct">
           <span class="setlabel">ACCOUNT</span>
           <p id="acctLine" class="fine">Your progress is saved on this phone.</p>
@@ -184,6 +189,21 @@
           <button id="againBtn" class="gbtn yellow" type="button">PLAY AGAIN</button>
         </div>
       </div>
+    </section>
+
+    <!-- Online: connecting / finding players -->
+    <section id="online" class="screen modal" hidden>
+      <div class="panel card">
+        <h2 class="ribbon">ONLINE</h2>
+        <div class="netspin" id="netSpin"><b></b><b></b><b></b></div>
+        <p id="netTitle" class="nettitle">CONNECTING…</p>
+        <p id="netSub" class="fine center">&nbsp;</p>
+        <div class="seats" id="netSeats"></div>
+        <button id="netCancel" class="gbtn red wide" type="button">CANCEL</button>
+      </div>
+    </section>
+    <section id="netlost" class="screen modal" hidden>
+      <div class="panel card"><h2 class="ribbon">RECONNECTING…</h2><p class="fine center">Your seat is saved for a few seconds.</p></div>
     </section>
 
     <!-- Daily reward -->

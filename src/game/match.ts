@@ -44,13 +44,19 @@ export type MatchEvent =
   | { type: 'sudden'; level: number }
   | { type: 'over' };
 
-export interface MatchOptions { diff?: Difficulty; arena?: Arena; tutorial?: boolean }
+export interface MatchOptions {
+  diff?: Difficulty; arena?: Arena; tutorial?: boolean;
+  online?: boolean;   // a networked match: it ends when one player is left, not when "me" is out
+  mirror?: boolean;   // client copy of an online match: the server runs the rules, this only animates
+}
 
 export class Match {
   mode: Mode;
   diff: Difficulty;
   arena: Arena;
   tutorial: boolean;
+  online: boolean;
+  mirror: boolean;
   holes: Set<string>;
   tiles: Tile[];
   reachedFinal = false;     // was the local player alive on the final platform?
@@ -68,6 +74,7 @@ export class Match {
 
   constructor(mode: Mode, seats: SeatSpec[], opts: MatchOptions = {}) {
     this.mode = mode; this.diff = opts.diff ?? 'normal'; this.arena = opts.arena ?? ARENAS[0]; this.tutorial = !!opts.tutorial;
+    this.online = !!opts.online; this.mirror = !!opts.mirror;
     this.holes = new Set(this.arena.holes.map(([q, r]) => hexKey(q, r)));
     this.tiles = buildTiles(ARENA.rings, this.holes);
     const n = seats.length;
@@ -85,7 +92,7 @@ export class Match {
   }
 
   on(fn: (e: MatchEvent) => void) { this.listeners.push(fn); }
-  private emit(e: MatchEvent) { this.listeners.forEach(f => f(e)); }
+  emit(e: MatchEvent) { this.listeners.forEach(f => f(e)); }
 
   start() { this.nextRound(); }
 
@@ -176,7 +183,7 @@ export class Match {
     this.setPhase('drop', TIMING.drop);
   }
 
-  private isOver() { return this.alive.length <= 1 || !this.me.alive; }
+  private isOver() { return this.alive.length <= 1 || (!this.online && !this.me.alive); }
   private finish() { this.phase = 'over'; this.emit({ type: 'over' }); }
 
   /** Final placing for a player: 1 = winner. */
@@ -206,6 +213,12 @@ export class Match {
   update(dt: number) {
     this.clock += dt;
     for (const t of this.tiles) if (t.fall > 0 && t.fall < 1) t.fall = Math.min(1, t.fall + dt * 0.8);
+    if (this.mirror) {
+      // client copy: the server owns the phases; we only count down and move ourselves locally
+      this.t = Math.max(0, this.t - dt);
+      if (this.phase === 'hide' && this.me?.alive) this.stepToward(this.me, dt, PLAYER.speed);
+      return;
+    }
     if (this.phase === 'over') return;
     this.t -= dt;
     const sec = Math.ceil(this.t);
@@ -236,4 +249,14 @@ export class Match {
         break;
     }
   }
+}
+
+/** Server side: move a networked player to where their phone says they are, if that's a legal move. */
+export function acceptMove(m: Match, p: Player, x: number, z: number, dt: number): boolean {
+  if (m.phase !== 'hide' || !p.alive || !Number.isFinite(x) || !Number.isFinite(z)) return false;
+  const dx = x - p.x, dz = z - p.z, L = Math.hypot(dx, dz), max = PLAYER.speed * dt * 1.3 + 0.08;
+  if (L <= max) { if (m.onFloor(x, z)) { p.x = x; p.z = z; return true; } return false; }
+  // too far for the time passed (lag or a cheat): move as far as allowed toward it
+  m.tryMove(p, (dx / L) * max, (dz / L) * max);
+  return false;
 }
