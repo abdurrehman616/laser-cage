@@ -231,3 +231,10 @@ export const FIREBASE = {
   verifyPurchases: true,            // check Play purchases on the server once the function is deployed
 };
 export const APP_VERSION = '0.5.0';
+
+// ---------- Online (Sprint 5) ----------
+export const ONLINE = {
+  enabled: false,                                     // switched on once online matches are built
+  server: 'wss://laser-cage-server.onrender.com/play', // Render free plan, Singapore
+  health: 'https://laser-cage-server.onrender.com/health',
+};
