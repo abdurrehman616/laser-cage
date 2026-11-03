@@ -6,6 +6,7 @@ name: Build Android
 on:
   push:
     branches: [main]
+    paths-ignore: ['server/**', 'render.yaml', '**/*.md']
   workflow_dispatch:
 permissions:
   contents: write

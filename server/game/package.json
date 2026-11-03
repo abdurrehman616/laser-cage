@@ -1,0 +1,14 @@
+{
+  "name": "laser-cage-game-server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Online match server for Laser Cage",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/index.js",
+    "start": "node dist/index.js",
+    "dev": "npm run build && npm start"
+  },
+  "dependencies": { "ws": "8.22.0" },
+  "devDependencies": { "esbuild": "0.28.2", "@types/ws": "8.18.1" }
+}

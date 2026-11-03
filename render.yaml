@@ -1,0 +1,15 @@
+# Render Blueprint: the online game server (free plan, Singapore).
+services:
+  - type: web
+    name: laser-cage-server
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: server/game
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

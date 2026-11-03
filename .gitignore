@@ -10,3 +10,5 @@ android/local.properties
 .DS_Store
 server/functions/node_modules/
 server/functions/lib/
+server/game/node_modules/
+server/game/dist/
