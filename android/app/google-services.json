@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "583033432912",
+    "project_id": "laser-cage",
+    "storage_bucket": "laser-cage.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:583033432912:android:8cf9634e82d27263a91a55",
+        "android_client_info": {
+          "package_name": "com.lasercage.game"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCqXC2_ZbmOn1ZP_i5xDIlgwihc-FFz_g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
