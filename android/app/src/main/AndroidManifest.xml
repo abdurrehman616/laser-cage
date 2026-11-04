@@ -12,7 +12,7 @@
         <!-- AdMob App ID. This is Google's TEST id; replace with your own from admob.google.com (also in src/config.ts) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="ca-app-pub-5409396612454589~2005906644"/>
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"

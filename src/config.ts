@@ -179,9 +179,9 @@ export const HAIR_COLORS = ['#d8432a', '#e09a3a', '#3a2a20', '#f2d86c', '#7a4bd1
 // AdMob: these are Google's official TEST ids. Replace with your own before going live
 // (App ID also goes in android/app/src/main/AndroidManifest.xml).
 export const ADS = {
-  testMode: true,
-  appId: 'ca-app-pub-3940256099942544~3347511713',
-  rewardedUnit: 'ca-app-pub-3940256099942544/5224354917',
+  testMode: true,          // keep true until the game is live on Play and AdMob has approved it
+  appId: 'ca-app-pub-5409396612454589~2005906644',
+  rewardedUnit: 'ca-app-pub-5409396612454589/1762364062',
   dailyCap: 12,            // max rewarded ads per day
 };
 
