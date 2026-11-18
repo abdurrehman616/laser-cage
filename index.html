@@ -24,8 +24,55 @@
  <symbol id="i-wheel" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 110 20 10 10 0 010-20zm1 2.1V11h6.9A8 8 0 0013 4.1zM11 4.1A8 8 0 004.1 11H11V4.1zM4.1 13A8 8 0 0011 19.9V13H4.1zm8.9 6.9a8 8 0 006.9-6.9H13v6.9z"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7 4v16l13-8z"/></symbol>
     <symbol id="i-left" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 3.5L7 12l8.5 8.5 2.1-2.1L11.2 12l6.4-6.4z"/></symbol>
+    <symbol id="i-laser" viewBox="0 0 24 24"><path fill="currentColor" d="M2 15h7v7H2zM9.6 13 19.3 3.3l2.5 2.5-9.7 9.7z"/><circle fill="currentColor" cx="20.6" cy="4.4" r="2.6"/></symbol>
+    <symbol id="i-gun" viewBox="0 0 24 24"><path fill="currentColor" d="M2 6h17v2.5h3v4.5h-7.5l-.9 2.2h-3.3L9.6 13H8.3l-1.8 6.5H2.4L4.3 13H2z"/></symbol>
+    <symbol id="i-shirt" viewBox="0 0 24 24"><path fill="currentColor" d="M8.2 2.5 12 4.6l3.8-2.1 6.7 4.4-3.2 4.6-2.3-1.2V21H7V10.3l-2.3 1.2-3.2-4.6z"/></symbol>
+    <symbol id="i-hat" viewBox="0 0 24 24"><path fill="currentColor" d="M4 15.5a8 8 0 0116 0V17H4zM1.5 18.5h15.8l5.2 2.5v1H1.5z"/><circle fill="currentColor" cx="12" cy="5" r="2.4"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path fill="currentColor" d="M10 1l2.4 7.6L20 11l-7.6 2.4L10 21l-2.4-7.6L0 11l7.6-2.4zM19.5 14l1.2 3.3 3.3 1.2-3.3 1.2-1.2 3.3-1.2-3.3-3.3-1.2 3.3-1.2z"/></symbol>
+    <symbol id="i-dance" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 3H21v13.6a3.6 3.6 0 11-2.4-3.4V8H10.9v10.6a3.6 3.6 0 11-2.4-3.4z"/></symbol>
+    <symbol id="i-floor" viewBox="0 0 24 24"><path fill="currentColor" d="M7 1.5l4.6 2.7v5.3L7 12.2 2.4 9.5V4.2zM17 1.5l4.6 2.7v5.3L17 12.2l-4.6-2.7V4.2zM12 11.8l4.6 2.7v5.3L12 22.5l-4.6-2.7v-5.3z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path fill="currentColor" d="M5.6 2.1 12 8.5l6.4-6.4 3.5 3.5L15.5 12l6.4 6.4-3.5 3.5-6.4-6.4-6.4 6.4-3.5-3.5L8.5 12 2.1 5.6z"/></symbol>
+    <!-- gem: an original hexagonal "laser crystal" (made for Laser Cage) -->
+    <symbol id="i-gem" viewBox="0 0 24 24">
+      <path fill="#0b1240" d="M12 .2l10.6 6.1v12.3L12 24.8 1.4 18.6V6.3z"/>
+      <path fill="#e9c6ff" d="M12 2.4 7.8 8.8h8.4z"/>
+      <path fill="#f6e3ff" d="M3.3 7.4 12 2.4 7.8 8.8z"/>
+      <path fill="#c58bff" d="M20.7 7.4 12 2.4l4.2 6.4z"/>
+      <path fill="#9d5cf5" d="M20.7 7.4v10.2l-4.5-2.7V8.8z"/>
+      <path fill="#b97cff" d="M3.3 7.4v10.2l4.5-2.7V8.8z"/>
+      <path fill="#6a2bd0" d="M20.7 17.6 12 22.6l-3-7.7h7.2z"/>
+      <path fill="#7f3ae6" d="M3.3 17.6 12 22.6l-3-7.7H7.8z"/>
+      <path fill="#d6a6ff" d="M7.8 8.8h8.4v6.1H7.8z"/>
+      <path fill="#fff" opacity=".85" d="M9.2 9.9h2.4l-1.5 2.6H8.9z"/>
+    </symbol>
     <symbol id="i-right" viewBox="0 0 24 24"><path fill="currentColor" d="M8.5 3.5L17 12l-8.5 8.5-2.1-2.1L12.8 12 6.4 5.6z"/></symbol>
   </svg>
+
+  <!-- Loading screen: shown by the HTML itself, before any script runs -->
+  <div id="splash">
+    <div class="splashlogo"><span class="l1">LASER</span><span class="l2">CAGE</span></div>
+    <div class="splashbar"><i id="splashFill"></i></div>
+    <p class="splashtip" id="splashTip">LOADING…</p>
+  </div>
+  <style>
+    #splash { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+      background: radial-gradient(ellipse at 50% 35%, #2a3fb8 0%, #14205a 55%, #0b1240 100%); transition: opacity .45s; color: #fff; font-family: 'Lilita One', 'Arial Black', Impact, sans-serif; }
+    #splash.gone { opacity: 0; pointer-events: none; }
+    #splash .splashlogo { display: flex; flex-direction: column; align-items: center; transform: rotate(-4deg); animation: splashIn .7s cubic-bezier(.2,1.5,.4,1); }
+    #splash .splashlogo span { line-height: .9; }
+    #splash .l1 { font-size: min(15vw, 9vh, 80px); text-shadow: 0 4px 0 #0b1240, 4px 0 0 #0b1240, -4px 0 0 #0b1240, 0 -4px 0 #0b1240, 0 9px 0 #0b1240; }
+    #splash .l2 { font-size: min(19vw, 11.5vh, 104px); color: #ff4d6d; text-shadow: 0 4px 0 #0b1240, 4px 0 0 #0b1240, -4px 0 0 #0b1240, 0 -4px 0 #0b1240, 0 10px 0 #0b1240, 0 0 40px rgba(255,77,109,.7); }
+    #splash .splashbar { width: min(260px, 64vw); height: 22px; border-radius: 999px; border: 4px solid #0b1240; background: #26306b; overflow: hidden; box-shadow: 0 4px 0 #0b1240; }
+    #splash .splashbar i { display: block; height: 100%; width: 100%; transform-origin: left; transform: scaleX(.04); transition: transform .5s ease-out;
+      background: repeating-linear-gradient(-45deg, rgba(255,255,255,.2) 0 8px, transparent 8px 16px), linear-gradient(180deg, #ffe14a, #ffb300); }
+    #splash .splashtip { margin: 0; font-size: 15px; letter-spacing: .05em; color: #c9d6ff; text-shadow: 0 2px 0 #0b1240; max-width: 80vw; text-align: center; }
+    @keyframes splashIn { from { transform: rotate(-4deg) scale(.6); opacity: 0; } }
+  </style>
+  <script>
+    // fill the bar while the game code downloads (the game finishes it)
+    requestAnimationFrame(() => requestAnimationFrame(() => { const f = document.getElementById('splashFill'); if (f && !f.dataset.done) f.style.transform = 'scaleX(.55)'; }));
+  </script>
 
   <div id="app">
     <canvas id="view"></canvas>
@@ -53,16 +100,14 @@
       <header class="topbar">
         <div class="tb-left">
           <div class="lvl" aria-label="Level"><b class="lvlstar"><svg><use href="#i-star"/></svg><span id="lvlNum">1</span></b><span class="xpbar"><i id="xpFill"></i></span></div>
-          <div class="coins"><b class="coin"></b><span id="coinCount">0</span></div>
-          <button class="coins gems gemPill" type="button" aria-label="Gems"><b class="gem"></b><span class="gemCount">0</span></button>
+          <div class="coins"><b class="coin"></b><span id="coinCount" class="coinCount">0</span></div>
+          <button class="coins gems gemPill" type="button" aria-label="Get gems"><svg class="gem"><use href="#i-gem"/></svg><span class="gemCount">0</span><b class="plus"><svg><use href="#i-plus"/></svg></b></button>
         </div>
         <div class="tb-right">
-          <button id="howBtn" class="gbtn sq blue" type="button" aria-label="How to play"><svg><use href="#i-help"/></svg></button>
           <button id="settingsBtn" class="gbtn sq blue" type="button" aria-label="Settings"><svg><use href="#i-gear"/></svg></button>
         </div>
       </header>
       <div class="logo" aria-label="Laser Cage"><span class="l1">LASER</span><span class="l2">CAGE</span></div>
-      <p id="statLine" class="statline"></p>
       <div class="sidebtns">
         <button id="dailyBtn" class="gbtn sq green side" type="button" aria-label="Daily reward"><svg><use href="#i-gift"/></svg><em class="dot" id="dailyDot" hidden>!</em></button>
  <button id="spinBtnSide" class="gbtn sq yellow side" type="button" aria-label="Daily spin"><svg><use href="#i-wheel"/></svg><em class="dot" id="spinDot" hidden>!</em></button>
@@ -70,28 +115,35 @@
       </div>
 
       <div class="dock">
-        <div class="panel matchset">
-          <div class="setrow">
-            <span class="setlabel"><svg><use href="#i-bot"/></svg>BOTS</span>
-            <div class="stepper">
-              <button id="botsMinus" class="gbtn sq blue small" type="button" aria-label="Fewer bots">−</button>
-              <b id="botCount">3</b>
-              <button id="botsPlus" class="gbtn sq blue small" type="button" aria-label="More bots">+</button>
-            </div>
-          </div>
-          <div class="seg" id="segDiff"></div>
-          <div class="setrow arenarow">
-            <button id="arenaPrev" class="gbtn sq blue small" type="button" aria-label="Previous arena"><svg><use href="#i-left"/></svg></button>
-            <div class="arenaname"><span id="arenaName">THE CAGE</span><small id="arenaLock" hidden></small></div>
-            <button id="arenaNext" class="gbtn sq blue small" type="button" aria-label="Next arena"><svg><use href="#i-right"/></svg></button>
-          </div>
-        </div>
-        <p id="nextUnlock" class="nextunlock"></p>
+        <button id="playBtn" class="gbtn yellow play" type="button"><span class="big">PLAY</span><span class="sub">ONLINE</span></button>
         <div class="dockrow">
-          <button id="shopBtn" class="gbtn tile purple" type="button"><svg><use href="#i-bag"/></svg><span>SHOP</span></button>
-          <button id="playBtn" class="gbtn yellow play" type="button"><span class="big">PLAY</span><span class="sub">VS BOTS</span></button>
-          <button id="onlineBtn" class="gbtn tile locked" type="button"><svg><use href="#i-globe"/></svg><span>ONLINE</span><em>SOON</em></button>
+          <button id="shopBtn" class="gbtn purple tile" type="button"><svg><use href="#i-bag"/></svg><span>SHOP</span></button>
+          <button id="botsBtn" class="gbtn blue tile" type="button"><svg><use href="#i-bot"/></svg><span>VS BOTS</span></button>
         </div>
+      </div>
+    </section>
+
+    <!-- VS Bots setup -->
+    <section id="botsetup" class="screen modal" hidden>
+      <div class="panel card">
+        <button class="gbtn sq red small closex" type="button" aria-label="Close" data-close><svg><use href="#i-close"/></svg></button>
+        <h2 class="ribbon">VS BOTS</h2>
+        <div class="setrow arenarow">
+          <button id="arenaPrev" class="gbtn sq blue small" type="button" aria-label="Previous arena"><svg><use href="#i-left"/></svg></button>
+          <div class="arenaname"><span id="arenaName">THE CAGE</span><small id="arenaLock" hidden></small></div>
+          <button id="arenaNext" class="gbtn sq blue small" type="button" aria-label="Next arena"><svg><use href="#i-right"/></svg></button>
+        </div>
+        <div class="setrow box">
+          <span class="setlabel"><svg><use href="#i-bot"/></svg>BOTS</span>
+          <div class="stepper">
+            <button id="botsMinus" class="gbtn sq blue small" type="button" aria-label="Fewer bots">−</button>
+            <b id="botCount">3</b>
+            <button id="botsPlus" class="gbtn sq blue small" type="button" aria-label="More bots">+</button>
+          </div>
+        </div>
+        <div class="seg" id="segDiff"></div>
+        <p id="nextUnlock" class="nextunlock"></p>
+        <button id="botStart" class="gbtn yellow wide big" type="button">START</button>
       </div>
     </section>
 
@@ -99,11 +151,11 @@
     <section id="shop" class="screen" hidden>
       <header class="topbar">
         <button class="gbtn sq blue back" type="button" aria-label="Back"><svg><use href="#i-back"/></svg></button>
-        <h2 class="ribbon">SHOP</h2>
-        <div class="tb-left"><div class="coins"><b class="coin"></b><span class="coinCount">0</span></div><div class="coins gems"><b class="gem"></b><span class="gemCount">0</span></div></div>
+        <div class="tb-left"><div class="coins"><b class="coin"></b><span class="coinCount">0</span></div><button class="coins gems gemPill" type="button" aria-label="Get gems"><svg class="gem"><use href="#i-gem"/></svg><span class="gemCount">0</span><b class="plus"><svg><use href="#i-plus"/></svg></b></button></div>
       </header>
-      <div class="panel shoppanel">
-        <div class="tabs" id="shopTabs"></div>
+      <div class="panel shoppanel" id="shopPanel">
+        <div class="shophead"><h2 id="shopTitle" class="ribbon">LASERS</h2><span id="shopCount" class="shopcount"></span></div>
+        <div class="tabs" id="shopTabs" role="tablist"></div>
         <div class="grid" id="shopGrid"></div>
         <div class="store" id="store" hidden></div>
         <button id="shopAction" class="gbtn green wide" type="button">EQUIPPED</button>
@@ -136,9 +188,20 @@
           <button id="restoreBtn" class="gbtn blue" type="button">RESTORE PURCHASES</button>
           <button id="privacyBtn" class="gbtn blue" type="button" hidden>AD PRIVACY</button>
         </div>
-        <button id="reportBtn" class="gbtn blue wide" type="button">REPORT A PROBLEM</button>
+        <div class="row2">
+          <button id="howBtn" class="gbtn blue" type="button">HOW TO PLAY</button>
+          <button id="reportBtn" class="gbtn blue" type="button">REPORT A PROBLEM</button>
+        </div>
         <p class="fine center" id="versionLine">Laser Cage</p>
       </div>
+    </section>
+
+    <!-- First launch: onboarding -->
+    <section id="onboard" class="screen modal" hidden>
+      <button id="obSkip" class="obskip" type="button">SKIP</button>
+      <div class="obtrack" id="obTrack"></div>
+      <div class="obdots" id="obDots"></div>
+      <button id="obNext" class="gbtn yellow wide big" type="button">NEXT</button>
     </section>
 
     <!-- How to play -->

@@ -13,6 +13,7 @@ export interface Profile {
   music: boolean;
   vibrate: boolean;
   tutorialDone: boolean;        // finished the guided first match
+  onboarded: boolean;           // saw the first-launch intro cards
   swapSticks: boolean;          // false = move on the left, aim on the right
   gfx: 'auto' | 'high' | 'low';
   stats: { matches: number; wins: number; kills: number; bestRound: number };
@@ -45,7 +46,7 @@ function fresh(): Profile {
     v: 1, coins: 150,
     owned: freeItems(),
     equip: { ...DEFAULT_EQUIP },
-    sound: true, music: true, vibrate: true, tutorialDone: false, swapSticks: false, gfx: 'auto',
+    sound: true, music: true, vibrate: true, tutorialDone: false, onboarded: false, swapSticks: false, gfx: 'auto',
     stats: { matches: 0, wins: 0, kills: 0, bestRound: 0 },
     level: 1, xp: 0, arena: 'cage',
     daily: { last: '', streak: 0 },
@@ -68,6 +69,8 @@ function load(): Profile {
     for (const id of freeItems()) if (!p.owned.includes(id)) p.owned.push(id);
     // anyone who already played has learned the game; skip the guided match
     if (saved.v && saved.level === undefined && p.stats.matches > 0) p.tutorialDone = true;
+    // players from before the intro cards existed don't need them
+    if (saved.onboarded === undefined && p.tutorialDone) p.onboarded = true;
     // guard against removed items
     for (const s of Object.keys(DEFAULT_EQUIP) as Slot[]) {
       if (!ITEMS.some(i => i.id === p.equip[s]) || !p.owned.includes(p.equip[s])) p.equip[s] = DEFAULT_EQUIP[s];

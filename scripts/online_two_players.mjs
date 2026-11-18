@@ -1,5 +1,5 @@
 // Two browser "phones" join the same online match through a local server and play it to the end.
-import { chromium } from 'playwright-core';
+import { chromium } from '/home/claude/.npm-global/lib/node_modules/playwright/index.mjs';
 import { spawn } from 'node:child_process';
 const out = process.argv[2];
 const PORT = 8124;
@@ -7,18 +7,18 @@ const srv = spawn('node', ['server/game/dist/index.js'], { env: { ...process.env
 srv.stdout.on('data', d => process.stdout.write('[srv] ' + d));
 await new Promise(r => setTimeout(r, 700));
 
-const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 async function phone(name) {
   const ctx = await b.newContext({ viewport: { width: 400, height: 860 }, hasTouch: true, isMobile: true });
   const pg = await ctx.newPage();
   pg.errs = []; pg.on('pageerror', e => pg.errs.push(e.message)); pg.on('console', m => m.type() === 'error' && pg.errs.push(m.text()));
   await pg.goto(`http://localhost:4173/?server=ws://localhost:${PORT}/play`); await pg.waitForTimeout(800);
-  await pg.evaluate(n => { const p = window.__lc.profile; p.tutorialDone = true; p.name = n; const d = new Date(); p.daily.last = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; window.__lc.show('home'); }, name);
+  await pg.evaluate(n => { const p = window.__lc.profile; p.tutorialDone = true; p.onboarded = true; p.name = n; const d = new Date(); p.daily.last = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; window.__lc.show('home'); }, name);
   await pg.waitForTimeout(500);
   return { pg, cdp: await ctx.newCDPSession(pg) };
 }
 const A = await phone('Alice'), B = await phone('Bobby');
-await A.pg.click('#onlineBtn'); await B.pg.click('#onlineBtn');
+await A.pg.waitForTimeout(1800); await A.pg.click('#playBtn', { force: true }); await B.pg.click('#playBtn', { force: true });
 await A.pg.waitForTimeout(1500); await A.pg.screenshot({ path: `${out}/1-finding.png` });
 await A.pg.waitForFunction(() => window.__lc.match?.online, null, { timeout: 30000 });
 await B.pg.waitForFunction(() => window.__lc.match?.online, null, { timeout: 30000 });

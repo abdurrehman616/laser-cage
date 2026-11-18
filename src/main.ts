@@ -10,13 +10,14 @@ import { track, diagnostics, recentEvents } from './analytics';
 import { accountId, cloudState, initCloud, onCloudState } from './cloud';
 import { APP_VERSION, ONLINE } from './config';
 import { OnlineSession } from './net/online';
+import { openOnboarding } from './onboard';
 import { adSpinsLeft, adsLeftToday, buyProduct, exchange, freeSpinReady, initAds, initStore, noAdsDaily, priceOf, privacyOptionsRequired, restorePurchases, rewardedAd, showPrivacyOptions, spin } from './monetize';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const view = new ArenaView($('view') as HTMLCanvasElement, $('labels'));
 
 // ---------------- state ----------------
-type Screen = 'home' | 'shop' | 'settings' | 'howto' | 'daily' | 'missions' | 'spin' | 'online' | 'game' | 'pause' | 'result';
+type Screen = 'home' | 'shop' | 'settings' | 'howto' | 'daily' | 'missions' | 'spin' | 'online' | 'botsetup' | 'onboard' | 'game' | 'pause' | 'result';
 let screen: Screen = 'home';
 let match: Match | null = null;
 let paused = false;
@@ -25,7 +26,8 @@ const keys = new Set<string>();
 const diffMult: Record<Difficulty, number> = { easy: 1, normal: 1.5, hard: 2 };
 let dailyShown = false;
 
-const SCREENS: Screen[] = ['home', 'shop', 'settings', 'howto', 'daily', 'missions', 'spin', 'online', 'pause', 'result'];
+const SCREENS: Screen[] = ['home', 'shop', 'settings', 'howto', 'daily', 'missions', 'spin', 'online', 'botsetup', 'onboard', 'pause', 'result'];
+const GEM = '<svg class="gem"><use href="#i-gem"/></svg>';
 let session: OnlineSession | null = null;
 function endSession() { session?.leave(); session = null; $('pingTag').hidden = true; $('netlost').hidden = true; }
 function show(s: Screen) {
@@ -38,14 +40,23 @@ function show(s: Screen) {
   view.previewDance = null;
   if (!inGame && s !== 'online') endSession();
   if (!inGame) { idleArena(); refreshHome(); }
+  requestAnimationFrame(frameCharacter);
   if (s !== 'game') setCoach(null);
   if (s === 'game') updateControls();
   playMusic(s === 'game' || s === 'pause' ? 'match' : 'menu');
   // daily reward pops up once per session when you open the game
-  if (s === 'home' && !dailyShown && profile.tutorialDone && dailyAvailable()) { dailyShown = true; setTimeout(() => { if (screen === 'home') openDaily(); }, 500); }
+  if (s === 'home' && booted && !dailyShown && profile.tutorialDone && dailyAvailable()) { dailyShown = true; setTimeout(() => { if (screen === 'home') openDaily(); }, 500); }
 }
 
 // ---------------- menu arena ----------------
+/** Tell the 3D view which strip of the screen is free, so your character stands there (not under the menus). */
+function frameCharacter() {
+  const H = innerHeight, r = (id: string) => document.querySelector(id)!.getBoundingClientRect();
+  if (screen === 'shop') view.focus = { top: r('#shop .topbar').bottom / H, bottom: r('#shopPanel').top / H };
+  else if (screen === 'home') view.focus = { top: r('#home .logo').bottom / H, bottom: r('#home .dock').top / H };
+  // other menus cover the character, so keep the last framing
+}
+addEventListener('resize', () => requestAnimationFrame(frameCharacter));
 function myLook(over: Partial<Record<Slot, string>> = {}): Look {
   const e = { ...profile.equip, ...over };
   return { outfit: e.outfit, hat: e.hat, hair: HAIR_COLORS[0], gun: e.gun, fx: e.fx, dance: e.dance };
@@ -67,29 +78,26 @@ function showMyPreview(over: Partial<Record<Slot, string>> = {}) {
 const currentArena = () => (arenaUnlocked(profile.arena) ? profile.arena : 'cage');
 
 function refreshHome() {
-  $('coinCount').textContent = String(profile.coins);
   document.querySelectorAll('.coinCount').forEach(e => (e.textContent = String(profile.coins)));
   document.querySelectorAll('.gemCount').forEach(e => (e.textContent = String(profile.gems)));
   $('spinDot').hidden = !freeSpinReady();
   $('spinBtnSide').hidden = !profile.tutorialDone;
   $('lvlNum').textContent = String(profile.level);
   $('xpFill').style.transform = `scaleX(${profile.level >= MAX_LEVEL ? 1 : profile.xp / xpToNext(profile.level)})`;
-  const s = profile.stats;
-  $('statLine').textContent = s.matches ? `${s.wins} WINS · ${s.kills} HITS · BEST ROUND ${s.bestRound}` : '';
   $('dailyDot').hidden = !dailyAvailable() || !profile.tutorialDone;
   const ready = missionsReady(); $('missionDot').hidden = !ready; $('missionDot').textContent = String(ready);
   $('dailyBtn').hidden = $('missionsBtn').hidden = !profile.tutorialDone;
-  const ob = $('onlineBtn'); ob.classList.toggle('locked', !ONLINE.enabled); ob.classList.toggle('blue', ONLINE.enabled);
-  const tag = ob.querySelector('em'); if (tag) tag.hidden = ONLINE.enabled;
-  // arena picker
+  // home: one big PLAY (online), then VS BOTS and SHOP. Before the tutorial it's just the tutorial.
+  ($('playBtn').querySelector('.sub') as HTMLElement).textContent = !profile.tutorialDone ? 'TUTORIAL' : ONLINE.enabled ? 'ONLINE' : 'VS BOTS';
+  $('botsBtn').classList.toggle('locked', !profile.tutorialDone);
+  // VS Bots popup: arena picker
   const a = arena(profile.arena), unlocked = arenaUnlocked(a.id);
   $('arenaName').textContent = a.name.toUpperCase();
   const lock = $('arenaLock'); lock.hidden = unlocked; lock.innerHTML = `<svg><use href="#i-lock"/></svg>REACH LEVEL ${a.unlockLevel}`;
   document.querySelector('.arenarow')!.classList.toggle('locked', !unlocked);
-  const play = $('playBtn'); play.classList.toggle('locked', !unlocked);
-  (play.querySelector('.sub') as HTMLElement).textContent = !profile.tutorialDone ? 'TUTORIAL' : unlocked ? 'VS BOTS' : `LEVEL ${a.unlockLevel}`;
+  const start = $('botStart'); start.classList.toggle('locked', !unlocked); start.textContent = unlocked ? 'START' : `LEVEL ${a.unlockLevel}`;
   const nu = nextUnlock();
-  $('nextUnlock').textContent = nu ? `LEVEL ${nu.level}: ${nu.name.toUpperCase()}` : '';
+  $('nextUnlock').textContent = nu ? `NEXT UNLOCK · LEVEL ${nu.level}: ${nu.name.toUpperCase()}` : '';
 }
 
 // ---------------- toast / banner ----------------
@@ -129,15 +137,20 @@ $('arenaNext').onclick = () => stepArena(1);
 $('playBtn').onclick = () => {
   unlockAudio(); sfx.click();
   if (!profile.tutorialDone) return startMatch(true);
+  if (!ONLINE.enabled) return show('botsetup');
+  openOnline();
+};
+$('botsBtn').onclick = () => {
+  unlockAudio(); sfx.click();
+  if (!profile.tutorialDone) { sfx.denied(); toast('Play the tutorial first!'); return; }
+  show('botsetup');
+};
+$('botStart').onclick = () => {
+  unlockAudio(); sfx.click();
   if (!arenaUnlocked(profile.arena)) { sfx.denied(); toast(`Reach level ${arena(profile.arena).unlockLevel} to play ${arena(profile.arena).name}`); return; }
   startMatch(false);
 };
-$('onlineBtn').onclick = () => {
-  unlockAudio(); sfx.click();
-  if (!ONLINE.enabled) { sfx.denied(); toast('Online battles are coming soon!'); return; }
-  if (!profile.tutorialDone) { toast('Play the tutorial first!'); return; }
-  openOnline();
-};
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => { sfx.click(); show('home'); }));
 function netStatus(title: string, sub = '', seats = 0) {
   $('netTitle').textContent = title; $('netSub').textContent = sub || '\u00a0';
   $('netSeats').innerHTML = Array.from({ length: 6 }, (_, i) => `<i class="${i < seats ? 'on' : ''}"></i>`).join('');
@@ -211,7 +224,7 @@ $('optSound').onchange = e => { profile.sound = (e.target as HTMLInputElement).c
 $('optMusic').onchange = e => { profile.music = (e.target as HTMLInputElement).checked; save(); refreshMusic(); };
 $('optVibe').onchange = e => { profile.vibrate = (e.target as HTMLInputElement).checked; save(); };
 $('howBtn').onclick = () => { unlockAudio(); sfx.click(); show('howto'); };
-$('howOk').onclick = () => { sfx.click(); show('home'); };
+$('howOk').onclick = () => { sfx.click(); $('settingsBtn').click(); };
 
 // ---------------- daily reward ----------------
 function openDaily() {
@@ -259,13 +272,13 @@ $('missionsClose').onclick = () => { sfx.click(); show('home'); };
 
 // ---------------- shop ----------------
 type Tab = Slot | 'gems';
-const TABS: { slot: Tab; name: string }[] = [
-  { slot: 'gems', name: 'GEMS' }, { slot: 'laser', name: 'LASERS' }, { slot: 'gun', name: 'GUNS' }, { slot: 'outfit', name: 'OUTFITS' }, { slot: 'hat', name: 'HATS' },
-  { slot: 'fx', name: 'EFFECTS' }, { slot: 'dance', name: 'DANCES' }, { slot: 'floor', name: 'FLOORS' },
+const TABS: { slot: Slot; name: string; icon: string }[] = [
+  { slot: 'laser', name: 'LASERS', icon: 'i-laser' }, { slot: 'gun', name: 'GUNS', icon: 'i-gun' }, { slot: 'outfit', name: 'OUTFITS', icon: 'i-shirt' },
+  { slot: 'hat', name: 'HATS', icon: 'i-hat' }, { slot: 'fx', name: 'EFFECTS', icon: 'i-spark' }, { slot: 'dance', name: 'DANCES', icon: 'i-dance' }, { slot: 'floor', name: 'FLOORS', icon: 'i-floor' },
 ];
-let shopTab: Tab = 'laser', shopSel = '';
-function openShop(tab: Tab) { shopTab = tab; shopSel = tab === 'gems' ? '' : profile.equip[tab]; renderShop(); show('shop'); applyPreview(); }
-$('shopBtn').onclick = () => { unlockAudio(); sfx.click(); openShop(shopTab === 'gems' ? 'laser' : shopTab); };
+let shopTab: Tab = 'laser', shopSel = '', lastItemTab: Slot = 'laser';
+function openShop(tab: Tab) { shopTab = tab; if (tab !== 'gems') lastItemTab = tab; shopSel = tab === 'gems' ? '' : profile.equip[tab]; renderShop(); show('shop'); applyPreview(); }
+$('shopBtn').onclick = () => { unlockAudio(); sfx.click(); openShop(lastItemTab); };
 document.querySelectorAll('.gemPill').forEach(b => b.addEventListener('click', () => { unlockAudio(); sfx.click(); openShop('gems'); }));
 const FX_ICON: Record<string, string> = { spark: '✦', confetti: '✿', pixels: '▦', coins: '●', smoke: '☁' };
 function swatch(id: string) {
@@ -287,23 +300,27 @@ function swatchLabel(id: string) {
 function renderShop() {
   const tabs = $('shopTabs'); tabs.innerHTML = '';
   for (const t of TABS) {
-    const b = document.createElement('button'); b.type = 'button'; b.textContent = t.name; if (t.slot === shopTab) b.className = 'on';
-    b.onclick = () => { sfx.click(); shopTab = t.slot; shopSel = t.slot === 'gems' ? '' : profile.equip[t.slot]; renderShop(); applyPreview(); };
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-label', t.name);
+    b.innerHTML = `<svg><use href="#${t.icon}"/></svg>`; if (t.slot === shopTab) b.className = 'on';
+    b.onclick = () => { sfx.click(); openShop(t.slot); };
     tabs.appendChild(b);
   }
   const isStore = shopTab === 'gems';
   $('shopGrid').hidden = isStore; $('shopAction').hidden = isStore; $('store').hidden = !isStore;
-  if (isStore) { renderStore(); refreshHome(); return; }
+  $('shopTitle').textContent = isStore ? 'GEM STORE' : TABS.find(t => t.slot === shopTab)!.name;
+  if (isStore) { $('shopCount').textContent = ''; renderStore(); refreshHome(); return; }
+  const list = ITEMS.filter(i => i.slot === shopTab);
+  $('shopCount').textContent = `${list.filter(i => profile.owned.includes(i.id)).length} / ${list.length} OWNED`;
   const grid = $('shopGrid'); grid.innerHTML = '';
-  for (const it of ITEMS.filter(i => i.slot === shopTab)) {
+  for (const it of list) {
     const owned = profile.owned.includes(it.id), eq = profile.equip[it.slot] === it.id;
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'itm' + (it.premium ? ' rare' : it.price === 0 ? ' free' : '') + (shopSel === it.id ? ' sel' : '');
     const price = owned ? `<span class="pr own">${eq ? 'EQUIPPED' : 'OWNED'}</span>`
-      : it.gems ? `<span class="pr gp"><b class="gem"></b>${it.gems}</span>`
-      : it.unlockLevel ? `<span class="pr"><b class="coin"></b>${it.price} · LV${it.unlockLevel}</span>`
+      : it.gems ? `<span class="pr gp">${GEM}${it.gems}</span>`
       : `<span class="pr"><b class="coin"></b>${it.price}</span>`;
-    b.innerHTML = `<span class="sw" style="background:${swatch(it.id)}">${swatchLabel(it.id)}</span><span class="nm"></span>` + price +
+    const lvl = !owned && it.unlockLevel ? `<b class="lk" title="Free at level ${it.unlockLevel}">LV${it.unlockLevel}</b>` : '';
+    b.innerHTML = `<span class="sw" style="background:${swatch(it.id)}">${swatchLabel(it.id)}${lvl}</span><span class="nm"></span>` + price +
       (eq ? '<span class="eq">✓</span>' : '') + (it.premium ? '<span class="vip">VIP</span>' : '');
     (b.querySelector('.nm') as HTMLElement).textContent = it.name.toUpperCase();
     b.onclick = () => { sfx.click(); shopSel = it.id; renderShop(); applyPreview(); };
@@ -313,7 +330,7 @@ function renderShop() {
   const owned = profile.owned.includes(shopSel), eq = profile.equip[it.slot] === shopSel;
   act.disabled = eq;
   act.className = 'gbtn wide ' + (owned ? 'green' : 'yellow');
-  act.innerHTML = eq ? 'EQUIPPED' : owned ? 'EQUIP' : it.gems ? `BUY <b class="gem"></b> ${it.gems}` : `BUY <b class="coin"></b> ${it.price}`;
+  act.innerHTML = eq ? 'EQUIPPED' : owned ? 'EQUIP' : it.gems ? `BUY ${GEM} ${it.gems}` : `BUY <b class="coin"></b> ${it.price}`;
   refreshHome();
 }
 function applyPreview() {
@@ -344,19 +361,19 @@ function renderStore() {
   const el = (html: string) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstElementChild as HTMLElement; };
   const buyBtn = (pid: string, label: string, cls = 'green') => `<button class="gbtn ${cls}" type="button" data-buy="${pid}">${label}</button>`;
   const starter = PRODUCTS.find(p => p.kind === 'starter')!, noads = PRODUCTS.find(p => p.kind === 'noads')!;
-  if (!profile.starterBought) st.appendChild(el(`<div class="offer"><span class="tag">ONE TIME ONLY</span><span class="ic"><b class="gem"></b></span>
+  if (!profile.starterBought) st.appendChild(el(`<div class="offer"><span class="tag">ONE TIME ONLY</span><span class="ic">${GEM}</span>
     <h4>STARTER PACK</h4><p>${starter.gems} gems, ${STARTER.coins} coins and the Neon gun</p>${buyBtn(starter.id, priceOf(starter))}</div>`));
   st.appendChild(el(`<p class="storeh">GEMS</p>`));
   const packs = el(`<div class="packs"></div>`);
   PRODUCTS.filter(p => p.kind === 'gems').forEach((p, i) => packs.appendChild(el(`<button class="pack" type="button" data-buy="${p.id}">${p.bonus ? `<span class="bonus">${p.bonus}</span>` : ''}
-    <span class="gemstack">${'<b class="gem"></b>'.repeat(i + 1)}</span><b>${p.gems}</b><span class="price">${priceOf(p)}</span></button>`)));
+    <span class="gemstack">${GEM.repeat(i + 1)}</span><b>${p.gems}</b><span class="price">${priceOf(p)}</span></button>`)));
   st.appendChild(packs);
   st.appendChild(el(profile.noAds
     ? `<div class="offer noads"><span class="ic">✓</span><h4>NO-ADS PASS</h4><p>Active. Ad rewards are instant and you get ${NOADS_DAILY_GEMS} gems every day.</p></div>`
     : `<div class="offer noads"><span class="ic">▶</span><h4>NO-ADS PASS</h4><p>Get every ad reward instantly, without watching, plus ${NOADS_DAILY_GEMS} gems every day.</p>${buyBtn(noads.id, priceOf(noads), 'yellow')}</div>`));
   st.appendChild(el(`<p class="storeh">SWAP GEMS FOR COINS</p>`));
   const ex = el(`<div class="exch"></div>`);
-  EXCHANGE.forEach((e, i) => ex.appendChild(el(`<button class="gbtn blue" type="button" data-ex="${i}"><span><b class="gem"></b>${e.gems}</span><span><b class="coin"></b>${e.coins}</span></button>`)));
+  EXCHANGE.forEach((e, i) => ex.appendChild(el(`<button class="gbtn blue" type="button" data-ex="${i}"><span>${GEM}${e.gems}</span><span><b class="coin"></b>${e.coins}</span></button>`)));
   st.appendChild(ex);
   st.querySelectorAll<HTMLElement>('[data-buy]').forEach(b => b.onclick = async () => {
     sfx.click();
@@ -754,8 +771,36 @@ function frame(now: number) {
   view.render(realDt);
   requestAnimationFrame(frame);
 }
+// ---------------- loading screen + first launch ----------------
+let booted = false;
+const TIPS = ['TIP: The pink outer ring falls after every round.', 'TIP: Move during HIDE. Rivals remember where you stood!', 'TIP: Aim where someone will be, not where they were.',
+  'TIP: Lasers get wider on the final platform.', 'TIP: Come back every day for a bigger reward.'];
+$('splashTip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
+function splash(frac: number) { const f = $('splashFill'); f.dataset.done = '1'; f.style.transform = `scaleX(${frac})`; }
+async function boot() {
+  const t0 = performance.now();
+  splash(0.7);
+  // wait for the game fonts (so nothing jumps) and a few rendered frames, but never more than 3 s
+  await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 3000))]);
+  await new Promise(r => setTimeout(r, Math.max(0, 1100 - (performance.now() - t0))));
+  splash(1);
+  await new Promise(r => setTimeout(r, 450));
+  booted = true;
+  frameCharacter();
+  $('splash').classList.add('gone'); setTimeout(() => $('splash').remove(), 600);
+  if (!profile.onboarded) {
+    show('onboard');
+    openOnboarding(profile.name, name => {
+      profile.name = name; profile.onboarded = true; save(); track('onboarding_done');
+      unlockAudio(); startMatch(true);
+    }, { click: () => { unlockAudio(); sfx.click(); } });
+  } else show('home');
+  // the free online server sleeps when idle: poke it now so it's awake by the time you tap PLAY
+  if (ONLINE.enabled && profile.tutorialDone) fetch(ONLINE.health, { mode: 'no-cors' }).catch(() => { /* offline */ });
+}
 show('home');
 requestAnimationFrame(frame);
+boot();
 initAds();
 track('app_open', { level: profile.level, matches: profile.stats.matches });
 initCloud(() => { refreshHome(); toast('Progress restored from the cloud!'); });

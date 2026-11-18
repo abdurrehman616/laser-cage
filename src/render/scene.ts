@@ -59,7 +59,7 @@ export class ArenaView {
   private sun!: THREE.DirectionalLight;
   quality: 'high' | 'low' = 'high';
   // scratch objects reused every frame, so the phone's garbage collector doesn't cause hitches
-  private tA = new THREE.Vector3(); private tB = new THREE.Vector3(); private tC = new THREE.Color();
+  private tA = new THREE.Vector3(); private tB = new THREE.Vector3(); private tC = new THREE.Color(); private tQ = new THREE.Quaternion();
   private fallMats: THREE.MeshStandardMaterial[] = [];
 
   // Tiny off-screen copies of effect materials so their shaders are ready before the first hit or floor drop
@@ -406,8 +406,11 @@ export class ArenaView {
   private camPos = new THREE.Vector3();
   private camLook = new THREE.Vector3();
   private camInit = false;
-  /** 0 = whole arena (in a match), 1 = close-up on your character (menus), 2 = close-up placed higher (shop) */
+  /** 0 = whole arena (in a match), 1 = close-up on your character (home), 2 = close-up for the shop */
   shot = 0;
+  /** Menus: the free strip of screen (0 = top, 1 = bottom) where your character should stand, between the UI pieces. */
+  focus = { top: 0.12, bottom: 0.62 };
+  private viewOff = 0;
   snapCamera() { this.camInit = false; this.fitCamera(); }
 
   // ---------- frame ----------
@@ -481,10 +484,22 @@ export class ArenaView {
     const k = 1 - Math.exp(-dt * 3.5);
     if (this.shot === 0) { this.camPos.lerp(this.baseCam, k); this.camLook.lerp(this.baseLook, k); }
     else {
-      const dist = this.shot === 2 ? (portrait ? 8.5 : 6.5) : (portrait ? 7.8 : 5.8), drop = this.shot === 2 ? (portrait ? 2.2 : 1.2) : (portrait ? 0.35 : 0.2);
-      const sway = Math.sin(this.time * 0.25) * 1.2;
-      this.camPos.lerp(this.tA.set(sway, 3.6, dist), k);
-      this.camLook.lerp(this.tB.set(0, 0.8 - drop, 0), k);
+      // size the character to the free strip of screen: it fills most of the strip's height on any phone
+      const band = Math.max(0.16, this.focus.bottom - this.focus.top);
+      const tanHalf = Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+      const fill = this.shot === 2 ? 0.8 : 0.74, charH = 1.95;
+      const dist = THREE.MathUtils.clamp(charH / (band * fill) / (2 * tanHalf), 3.2, portrait ? 16 : 11);
+      const sway = Math.sin(this.time * 0.25) * 0.1 * dist;
+      this.camPos.lerp(this.tA.set(sway, 1.15 + dist * 0.3, dist * 0.95), k);
+      this.camLook.lerp(this.tB.set(0, 1.15, 0), k);
+    }
+    // slide the picture so the character's middle sits in the middle of the free strip
+    const h = this.canvas.clientHeight || innerHeight, w = this.canvas.clientWidth || innerWidth;
+    const wantOff = this.shot === 0 ? 0 : (0.5 - (this.focus.top + this.focus.bottom) / 2) * h;
+    const off = this.viewOff + (wantOff - this.viewOff) * k;
+    if (Math.abs(off - this.viewOff) > 0.05 || (off !== 0 && !this.camera.view)) {
+      this.viewOff = Math.abs(off) < 0.5 && wantOff === 0 ? 0 : off;
+      if (this.viewOff === 0) this.camera.clearViewOffset(); else this.camera.setViewOffset(w, h, 0, this.viewOff, w, h);
     }
     this.camera.position.copy(this.camPos);
     if (s) this.camera.position.add(this.tA.set((Math.random() - 0.5) * s, (Math.random() - 0.5) * s, 0));
@@ -545,19 +560,29 @@ export class ArenaView {
       rig.root.updateMatrixWorld(true);
       const from = rig.gunTip.getWorldPosition(this.tA);
 
-      let ex: number, ez: number;
-      if (m && !isPreview) {
-        const e = m.laserEnd(p, ghost || m.phase === 'intro');
-        ex = e.x; ez = e.z;
-      } else { ex = p.x + Math.cos(p.aim) * 6; ez = p.z + Math.sin(p.aim) * 6; }
-      const len = Math.max(0.01, Math.hypot(ex - from.x, ez - from.z));
       const lock = m?.phase === 'lock';
       const flick = lock ? (Math.sin(this.time * 40) > 0 ? 1 : 0.55) : 1;
-      for (const b of [v.beam, v.glow]) { b.position.copy(from); b.rotation.set(0, -Math.atan2(ez - from.z, ex - from.x), 0); }
-      v.beam.scale.set(len, lock ? 0.08 : 0.06, lock ? 0.08 : 0.06);
-      v.glow.scale.set(len, lock ? 0.3 : 0.2, lock ? 0.3 : 0.2);
+      if (m && !isPreview) {
+        const e = m.laserEnd(p, ghost || m.phase === 'intro');
+        const ex = e.x, ez = e.z;
+        const len = Math.max(0.01, Math.hypot(ex - from.x, ez - from.z));
+        for (const b of [v.beam, v.glow]) { b.position.copy(from); b.rotation.set(0, -Math.atan2(ez - from.z, ex - from.x), 0); }
+        v.beam.scale.set(len, lock ? 0.08 : 0.06, lock ? 0.08 : 0.06);
+        v.glow.scale.set(len, lock ? 0.3 : 0.2, lock ? 0.3 : 0.2);
+        v.dot.position.set(ex, from.y, ez);
+      } else {
+        // menu / shop: the beam comes straight out of the barrel, so it spins and flips with the dance
+        const q = rig.gunTip.getWorldQuaternion(this.tQ);
+        const dir = this.tB.set(1, 0, 0).applyQuaternion(q);
+        let len = 6;
+        if (dir.y < -0.02) len = Math.min(len, (from.y - 0.02) / -dir.y);   // stop where it hits the floor
+        len = Math.max(0.01, len);
+        for (const b of [v.beam, v.glow]) { b.position.copy(from); b.quaternion.copy(q); }
+        v.beam.scale.set(len, 0.06, 0.06);
+        v.glow.scale.set(len, 0.2, 0.2);
+        v.dot.position.copy(from).addScaledVector(dir, len);
+      }
       v.glowMat.opacity = 0.35 * flick;
-      v.dot.position.set(ex, from.y, ez);
     }
 
     // name tag
