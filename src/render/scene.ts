@@ -19,7 +19,6 @@ interface Vis {
   recoil: number; flash: number; hit: number;   // 1 → 0 after firing / being hit
   charge: THREE.Mesh; muzzle: THREE.Mesh; chargeMat: THREE.MeshBasicMaterial; muzzleMat: THREE.MeshBasicMaterial;
 }
-interface ShotFx { meshes: THREE.Mesh[]; born: number; len: number }
 
 function canvasTex(size: number, draw: (g: CanvasRenderingContext2D, s: number) => void, repeat = 1) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -46,7 +45,6 @@ export class ArenaView {
   private meshTex!: THREE.CanvasTexture;
   private vis: Vis[] = [];
   private shotGroup = new THREE.Group();
-  private shotFx: ShotFx[] = [];
   private orbGeo = new THREE.SphereGeometry(0.1, 14, 10);
   private beamGeo = (() => { const g = new THREE.BoxGeometry(1, 1, 1); g.translate(0.5, 0, 0); return g; })();
   /** Called when a laser fires (for the screen flash). */
@@ -302,7 +300,6 @@ export class ArenaView {
   // ---------- effects ----------
   private clearShots() {
     while (this.shotGroup.children.length) { const c = this.shotGroup.children.pop() as THREE.Mesh; (c.material as THREE.Material).dispose(); }
-    this.shotFx = [];
   }
   /** FIRE: every laser shoots out of its gun as a white-hot beam, with a muzzle flash, recoil and sparks where it lands. */
   showShots(m: Match) {
@@ -314,17 +311,14 @@ export class ArenaView {
       const from = v.rig.gunTip.getWorldPosition(this.tA).clone();
       const to = new THREE.Vector3(s.x, GUN_Y, s.z);
       const len = from.distanceTo(to);
-      const col = new THREE.Color(s.from.color);
-      const meshes: THREE.Mesh[] = [];
-      // core (white), body (laser colour), wide soft glow
-      for (const [w, o, c] of [[0.07, 1, '#ffffff'], [0.2, 0.85, col], [0.75, 0.35, col]] as const) {
-        const mesh = new THREE.Mesh(this.beamGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-        mesh.position.copy(from); mesh.scale.set(0.01, w, w);
+      const color = s.hit ? '#ffffff' : s.from.color;
+      for (const [w, o] of [[0.12, 1], [0.45, 0.5]] as const) {
+        const mesh = new THREE.Mesh(this.beamGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+        mesh.position.copy(from); mesh.scale.set(len, w, w);
         mesh.rotation.y = -Math.atan2(to.z - from.z, to.x - from.x);
-        mesh.userData = { base: o, w };
-        this.shotGroup.add(mesh); meshes.push(mesh);
+        mesh.userData.base = o;
+        this.shotGroup.add(mesh);
       }
-      this.shotFx.push({ meshes, born: this.time, len });
       v.recoil = 1; v.flash = 1;
       if (s.hit) {
         const hv = this.vis.find(x => x.p === s.hit); if (hv) hv.hit = 1;
@@ -505,19 +499,10 @@ export class ArenaView {
       if (c.target) this.marker.position.set(c.target.x, 0.03, c.target.z);
     }
 
-    // shots: shoot out of the gun in a blink, flare, then thin out and fade
-    if (m && (m.phase === 'fire' || m.phase === 'drop') && this.shotFx.length) {
-      for (const f of this.shotFx) {
-        const age = this.time - f.born;
-        const ext = Math.min(1, age / 0.07);
-        const flare = age < 0.12 ? 1.5 : 1;
-        const fade = Math.max(0, 1 - Math.max(0, age - 0.15) / 0.85);
-        for (const mesh of f.meshes) {
-          const w = (mesh.userData.w as number) * flare * (0.35 + 0.65 * fade);
-          mesh.scale.set(Math.max(0.01, f.len * ext), w, w);
-          (mesh.material as THREE.MeshBasicMaterial).opacity = (mesh.userData.base as number) * fade;
-        }
-      }
+    // shots fade
+    if (m && (m.phase === 'fire' || m.phase === 'drop')) {
+      const a = m.phase === 'fire' ? Math.max(0.15, m.t / m.tt) : Math.max(0, (m.t / m.tt - 0.7) * 3);
+      this.shotGroup.children.forEach(o => ((o as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = (o.userData.base as number) * a);
     } else if (this.shotGroup.children.length) this.clearShots();
 
     // particles
@@ -660,25 +645,18 @@ export class ArenaView {
         v.dot.position.copy(from).addScaledVector(dir, len);
       }
       v.glowMat.opacity = 0.35 * flick;
-      if (charging) { const k = 1 - m!.t / m!.tt; v.glowMat.opacity = (0.3 + 0.5 * k) * flick; v.glow.scale.y = v.glow.scale.z = 0.2 + 0.25 * k; }
+
     }
 
-    // charge orb at the barrel during the lock, and the muzzle flash when it fires
-    const tip = (charging || v.flash > 0) ? rig.gunTip.getWorldPosition(this.tA) : null;
-    v.charge.visible = charging;
-    if (charging && tip) {
-      const k = 1 - m!.t / m!.tt;
-      v.charge.position.copy(tip);
-      v.charge.scale.setScalar(0.6 + k * 1.9 + Math.sin(this.time * 45) * 0.15);
-      v.chargeMat.opacity = 0.45 + 0.5 * k;
-      if (p.rainbow) v.chargeMat.color.copy(v.beamMat.color);
-    }
+    // small muzzle flash when it fires
+    const tip = v.flash > 0 ? rig.gunTip.getWorldPosition(this.tA) : null;
+    v.charge.visible = false;
     v.muzzle.visible = v.flash > 0;
     if (v.flash > 0 && tip) {
       v.flash = Math.max(0, v.flash - dt * 6);
       v.muzzle.position.copy(tip);
-      v.muzzle.scale.setScalar(1.2 + (1 - v.flash) * 4.5);
-      v.muzzleMat.opacity = v.flash;
+      v.muzzle.scale.setScalar(1 + (1 - v.flash) * 1.5);
+      v.muzzleMat.opacity = v.flash * 0.8;
     }
 
     // name tag
