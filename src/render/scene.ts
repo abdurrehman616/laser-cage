@@ -15,7 +15,11 @@ interface Vis {
   beamMat: THREE.MeshBasicMaterial; glowMat: THREE.MeshBasicMaterial;
   label: HTMLDivElement;
   lastX: number; lastZ: number; walk: number;
+  turn: number;                 // body facing, eased toward the aim so the gun swings instead of snapping
+  recoil: number; flash: number; hit: number;   // 1 → 0 after firing / being hit
+  charge: THREE.Mesh; muzzle: THREE.Mesh; chargeMat: THREE.MeshBasicMaterial; muzzleMat: THREE.MeshBasicMaterial;
 }
+interface ShotFx { meshes: THREE.Mesh[]; born: number; len: number }
 
 function canvasTex(size: number, draw: (g: CanvasRenderingContext2D, s: number) => void, repeat = 1) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -42,6 +46,11 @@ export class ArenaView {
   private meshTex!: THREE.CanvasTexture;
   private vis: Vis[] = [];
   private shotGroup = new THREE.Group();
+  private shotFx: ShotFx[] = [];
+  private orbGeo = new THREE.SphereGeometry(0.1, 14, 10);
+  private beamGeo = (() => { const g = new THREE.BoxGeometry(1, 1, 1); g.translate(0.5, 0, 0); return g; })();
+  /** Called when a laser fires (for the screen flash). */
+  onFlash: ((meHit: boolean) => void) | null = null;
   private fx = new THREE.Group();
   private particles: { m: THREE.Mesh; v: THREE.Vector3; life: number; g: number; spin: number; grow: number; mats?: THREE.Material[] }[] = [];
   private env = new THREE.Group();
@@ -250,15 +259,21 @@ export class ArenaView {
     const glow = new THREE.Mesh(unit, glowMat); glow.scale.set(1, 0.13, 0.13);
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), glowMat);
     this.scene.add(beam, glow, dot);
+    const add = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false } as const;
+    const chargeMat = new THREE.MeshBasicMaterial({ color: p.color, opacity: 0.9, ...add });
+    const muzzleMat = new THREE.MeshBasicMaterial({ color: '#ffffff', opacity: 0, ...add });
+    const charge = new THREE.Mesh(this.orbGeo, chargeMat); charge.visible = false;
+    const muzzle = new THREE.Mesh(this.orbGeo, muzzleMat); muzzle.visible = false;
+    this.scene.add(charge, muzzle);
     const label = document.createElement('div'); label.className = 'nametag'; label.textContent = p.name;
     label.style.setProperty('--c', p.color);
     this.labels.appendChild(label);
-    return { p, rig, beam, glow, dot, beamMat, glowMat, label, lastX: p.x, lastZ: p.z, walk: 0 };
+    return { p, rig, beam, glow, dot, beamMat, glowMat, label, lastX: p.x, lastZ: p.z, walk: 0, turn: -p.aim, recoil: 0, flash: 0, hit: 0, charge, muzzle, chargeMat, muzzleMat };
   }
 
   private dropVis(v: Vis) {
-    this.scene.remove(v.rig.root, v.beam, v.glow, v.dot);
-    disposeCharacter(v.rig); v.beamMat.dispose(); v.glowMat.dispose();
+    this.scene.remove(v.rig.root, v.beam, v.glow, v.dot, v.charge, v.muzzle);
+    disposeCharacter(v.rig); v.beamMat.dispose(); v.glowMat.dispose(); v.chargeMat.dispose(); v.muzzleMat.dispose();
     v.label.remove();
   }
 
@@ -285,26 +300,56 @@ export class ArenaView {
   menu = false;
 
   // ---------- effects ----------
-  private clearShots() { while (this.shotGroup.children.length) { const c = this.shotGroup.children.pop() as THREE.Mesh; (c.material as THREE.Material).dispose(); } }
+  private clearShots() {
+    while (this.shotGroup.children.length) { const c = this.shotGroup.children.pop() as THREE.Mesh; (c.material as THREE.Material).dispose(); }
+    this.shotFx = [];
+  }
+  /** FIRE: every laser shoots out of its gun as a white-hot beam, with a muzzle flash, recoil and sparks where it lands. */
   showShots(m: Match) {
     this.clearShots();
+    let meHit = false;
     for (const s of m.shots) {
       const v = this.vis.find(x => x.p === s.from); if (!v) continue;
-      const from = v.rig.gunTip.getWorldPosition(this.tA);
-      const to = this.tB.set(s.x, GUN_Y, s.z);
+      v.rig.root.updateMatrixWorld(true);
+      const from = v.rig.gunTip.getWorldPosition(this.tA).clone();
+      const to = new THREE.Vector3(s.x, GUN_Y, s.z);
       const len = from.distanceTo(to);
-      const color = s.hit ? '#ffffff' : s.from.color;
-      for (const [w, o] of [[0.12, 1], [0.45, 0.5]] as const) {
-        const geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0.5, 0, 0);
-        const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
-        mesh.position.copy(from); mesh.scale.set(len, w, w);
+      const col = new THREE.Color(s.from.color);
+      const meshes: THREE.Mesh[] = [];
+      // core (white), body (laser colour), wide soft glow
+      for (const [w, o, c] of [[0.07, 1, '#ffffff'], [0.2, 0.85, col], [0.75, 0.35, col]] as const) {
+        const mesh = new THREE.Mesh(this.beamGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+        mesh.position.copy(from); mesh.scale.set(0.01, w, w);
         mesh.rotation.y = -Math.atan2(to.z - from.z, to.x - from.x);
-        mesh.userData.base = o;
-        this.shotGroup.add(mesh);
+        mesh.userData = { base: o, w };
+        this.shotGroup.add(mesh); meshes.push(mesh);
       }
-      if (s.hit) this.burst(s.hit.x, s.hit.z, s.from.color, item(s.from.look.fx || 'fx_spark').fx);
+      this.shotFx.push({ meshes, born: this.time, len });
+      v.recoil = 1; v.flash = 1;
+      if (s.hit) {
+        const hv = this.vis.find(x => x.p === s.hit); if (hv) hv.hit = 1;
+        if (s.hit.human && s.hit === m.me) meHit = true;
+        this.burst(s.hit.x, s.hit.z, s.from.color, item(s.from.look.fx || 'fx_spark').fx);
+      } else this.impact(to, from, s.from.color);
     }
-    this.shake = 0.35;
+    this.shake = 0.45;
+    this.onFlash?.(meHit);
+  }
+  /** Sparks splashing back off the cage where a laser lands. */
+  private impact(at: THREE.Vector3, from: THREE.Vector3, color: string) {
+    const back = from.clone().sub(at).setY(0).normalize();
+    const mats = [new THREE.MeshBasicMaterial({ color, transparent: true, toneMapped: false }), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, toneMapped: false })];
+    const R = Math.random;
+    for (let i = 0; i < 10; i++) {
+      const m = new THREE.Mesh(this.geos.spark, mats[i % 2]);
+      m.position.copy(at); m.scale.setScalar(0.6);
+      const v = back.clone().multiplyScalar(1.5 + R() * 2.5).add(new THREE.Vector3((R() - 0.5) * 2.5, R() * 2.5, (R() - 0.5) * 2.5));
+      this.fx.add(m); this.particles.push({ m, v, life: 0.7, g: 8, spin: 6, grow: 0, mats: i === 0 ? mats : undefined });
+    }
+    // a quick glow ring on the impact point
+    const ring = new THREE.Mesh(this.orbGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    ring.position.copy(at);
+    this.fx.add(ring); this.particles.push({ m: ring, v: new THREE.Vector3(), life: 0.5, g: 0, spin: 0, grow: 6, mats: [ring.material as THREE.Material] });
   }
   private geos = {
     spark: new THREE.BoxGeometry(0.1, 0.1, 0.1),
@@ -460,10 +505,19 @@ export class ArenaView {
       if (c.target) this.marker.position.set(c.target.x, 0.03, c.target.z);
     }
 
-    // shots fade
-    if (m && (m.phase === 'fire' || m.phase === 'drop')) {
-      const a = m.phase === 'fire' ? Math.max(0.15, m.t / m.tt) : Math.max(0, (m.t / m.tt - 0.7) * 3);
-      this.shotGroup.children.forEach(o => ((o as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = (o.userData.base as number) * a);
+    // shots: shoot out of the gun in a blink, flare, then thin out and fade
+    if (m && (m.phase === 'fire' || m.phase === 'drop') && this.shotFx.length) {
+      for (const f of this.shotFx) {
+        const age = this.time - f.born;
+        const ext = Math.min(1, age / 0.07);
+        const flare = age < 0.12 ? 1.5 : 1;
+        const fade = Math.max(0, 1 - Math.max(0, age - 0.15) / 0.85);
+        for (const mesh of f.meshes) {
+          const w = (mesh.userData.w as number) * flare * (0.35 + 0.65 * fade);
+          mesh.scale.set(Math.max(0.01, f.len * ext), w, w);
+          (mesh.material as THREE.MeshBasicMaterial).opacity = (mesh.userData.base as number) * fade;
+        }
+      }
     } else if (this.shotGroup.children.length) this.clearShots();
 
     // particles
@@ -517,7 +571,10 @@ export class ArenaView {
     // body
     rig.root.visible = !hidden && !(dead && since > 1.6);
     rig.root.position.set(p.x, 0, p.z);
-    rig.root.rotation.y = -p.aim;
+    // ease the body toward the aim (fast), so the gun swings round instead of snapping
+    let dA = -p.aim - v.turn; dA = Math.atan2(Math.sin(dA), Math.cos(dA));
+    v.turn = isPreview ? -p.aim : v.turn + dA * (1 - Math.exp(-dt * 22));
+    rig.root.rotation.y = v.turn;
     const moved = Math.hypot(p.x - v.lastX, p.z - v.lastZ);
     v.lastX = p.x; v.lastZ = p.z;
     v.walk = moved > 0.001 ? v.walk + dt * 12 : v.walk * 0.8;
@@ -534,6 +591,15 @@ export class ArenaView {
       else if (dance === 'wiggle') { rig.body.rotation.x = Math.sin(t * 12) * 0.28; rig.legL.rotation.z = Math.sin(t * 12) * 0.4; rig.legR.rotation.z = -Math.sin(t * 12) * 0.4; }
       else if (dance === 'flip') { const k = (t % 1.3) / 1.3, air = Math.min(1, k * 1.25); rig.body.position.y = Math.sin(air * Math.PI) * 1.1; rig.body.rotation.z = air * Math.PI * 2; }
     }
+    // recoil: the gun kicks back and up when it fires
+    if (v.recoil > 0) {
+      v.recoil = Math.max(0, v.recoil - dt * 4.5);
+      const r = v.recoil * v.recoil;
+      rig.body.position.x -= r * 0.2; rig.body.rotation.z += r * 0.3;
+    }
+    // charging up during the lock: a tiny shake that grows
+    const charging = !!(m && !isPreview && m.phase === 'lock' && p.alive && !hidden);
+    if (charging) { const k = 1 - m!.t / m!.tt; rig.body.position.z += Math.sin(this.time * 70 + p.id) * 0.012 * k; }
     if (dead && p.how === 'shot') {
       const k = Math.min(1, since * 3);
       rig.body.rotation.z = k * 1.45;            // topple backwards
@@ -541,6 +607,17 @@ export class ArenaView {
     } else if (dead && p.how === 'fell') {
       rig.root.position.y = -since * since * 6;
       rig.body.rotation.x = since * 2;
+    }
+
+    // flash white when hit
+    if (v.hit > 0) {
+      v.hit = Math.max(0, v.hit - dt * 2.5);
+      for (const mt of rig.mats as THREE.MeshStandardMaterial[]) {
+        if (!mt.emissive) continue;
+        mt.userData.e0 ??= mt.emissive.clone(); mt.userData.i0 ??= mt.emissiveIntensity;
+        mt.emissive.copy(mt.userData.e0).lerp(this.tC.set('#ffffff'), v.hit);
+        mt.emissiveIntensity = (mt.userData.i0 as number) * (1 - v.hit) + 1.6 * v.hit;
+      }
     }
 
     // laser colour (rainbow cycles)
@@ -583,6 +660,25 @@ export class ArenaView {
         v.dot.position.copy(from).addScaledVector(dir, len);
       }
       v.glowMat.opacity = 0.35 * flick;
+      if (charging) { const k = 1 - m!.t / m!.tt; v.glowMat.opacity = (0.3 + 0.5 * k) * flick; v.glow.scale.y = v.glow.scale.z = 0.2 + 0.25 * k; }
+    }
+
+    // charge orb at the barrel during the lock, and the muzzle flash when it fires
+    const tip = (charging || v.flash > 0) ? rig.gunTip.getWorldPosition(this.tA) : null;
+    v.charge.visible = charging;
+    if (charging && tip) {
+      const k = 1 - m!.t / m!.tt;
+      v.charge.position.copy(tip);
+      v.charge.scale.setScalar(0.6 + k * 1.9 + Math.sin(this.time * 45) * 0.15);
+      v.chargeMat.opacity = 0.45 + 0.5 * k;
+      if (p.rainbow) v.chargeMat.color.copy(v.beamMat.color);
+    }
+    v.muzzle.visible = v.flash > 0;
+    if (v.flash > 0 && tip) {
+      v.flash = Math.max(0, v.flash - dt * 6);
+      v.muzzle.position.copy(tip);
+      v.muzzle.scale.setScalar(1.2 + (1 - v.flash) * 4.5);
+      v.muzzleMat.opacity = v.flash;
     }
 
     // name tag

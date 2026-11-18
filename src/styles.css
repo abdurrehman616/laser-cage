@@ -389,3 +389,14 @@ button.coins { cursor: pointer; color: inherit; }
 .pad { width: calc(136 * var(--u)); height: calc(136 * var(--u)); }
 .pad .knob { width: calc(58 * var(--u)); height: calc(58 * var(--u)); margin: calc(-29 * var(--u)); }
 #hint { bottom: calc(var(--safe-b) + 60px + 136 * var(--u)); }
+
+/* fire flash + spectating */
+#flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,255,255,.55), rgba(255,255,255,.15) 70%); }
+#flash.hurt { background: radial-gradient(ellipse at center, rgba(255,77,109,0) 30%, rgba(255,40,70,.55) 100%); }
+#specbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-b) + 22px); width: min(420px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 10px 14px; border-radius: 18px; border: 3px solid var(--outline); background: rgba(11,18,64,.88); box-shadow: 0 5px 0 var(--outline); }
+#specbar > div { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#specbar b { font-family: var(--f-display); font-weight: 400; font-size: 20px; color: var(--gold); text-shadow: var(--stroke); letter-spacing: .04em; }
+#specbar small { font-family: var(--f-display); font-size: 13px; letter-spacing: .04em; color: var(--soft); text-shadow: var(--stroke); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#specbar .gbtn { padding: 10px 14px 13px; font-size: 17px; }
+#specbar .eye { flex: none; width: 34px; height: 22px; border-radius: 50% / 60%; border: 3px solid var(--outline); background: radial-gradient(circle, var(--outline) 0 22%, #5cc0ff 24% 46%, #fff 48%); animation: pop 1.6s ease-in-out infinite; }

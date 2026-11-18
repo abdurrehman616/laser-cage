@@ -10,7 +10,7 @@ import { ARENAS, BOT_NAMES, DEFAULT_EQUIP, HAIR_COLORS, ITEMS, NPC_OUTFITS, SEAT
 import { ClientMsg, FullState, NetEvent, PROTOCOL, PlayerSnap, SeatInfo, ServerMsg } from '../../../src/net/protocol';
 
 const PORT = Number(process.env.PORT) || 8080;
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const REGION = process.env.REGION || 'singapore';
 const MAX_HUMANS = 6;          // per match
 const FILL_TO = 5;             // bots fill the match up to this many players
@@ -55,13 +55,34 @@ class Room {
   info: SeatInfo[] = [];
   tickN = 0;
   doneAt = 0;
+  winner: number | null = null;
 
-  add(c: Client) { this.lobby.push(c); c.room = this; this.broadcastQueue(); if (this.lobby.length >= MAX_HUMANS) this.start(); }
-  remove(c: Client) {
+  add(c: Client) {
+    if (!this.lobby.length) this.created = Date.now();   // an empty lobby restarts its wait for the next person
+    // two people with the same name get a number, so everyone can tell them apart
+    const taken = new Set(this.lobby.map(x => x.name.toLowerCase()));
+    if (taken.has(c.name.toLowerCase())) { let n = 2; while (taken.has(`${c.name.slice(0, 10)}${n}`.toLowerCase())) n++; c.name = `${c.name.slice(0, 10)}${n}`; }
+    this.lobby.push(c); c.room = this; this.broadcastQueue(); if (this.lobby.length >= MAX_HUMANS) this.start();
+  }
+  /** quit = they tapped QUIT (a bot takes over now); otherwise the connection dropped (they may come back). */
+  remove(c: Client, quit = false) {
     if (this.state === 'lobby') { this.lobby = this.lobby.filter(x => x !== c); c.room = null; this.broadcastQueue(); return; }
     const seat = this.seats.get(c.seat);
-    if (seat && seat.client === c) { seat.client = null; seat.awaySince = Date.now(); }
+    if (seat && seat.client === c) {
+      seat.client = null; seat.awaySince = quit ? Date.now() - AWAY_GRACE - 1 : Date.now();
+      if (quit) { tokens.delete(seat.token); this.botTakeover(); }
+    }
     c.room = null;
+  }
+  /** Seats whose player has been away too long are played by a bot from now on. */
+  botTakeover() {
+    const m = this.match; if (!m) return;
+    for (const [id, s] of this.seats) {
+      const p = m.players[id];
+      if (!s.client && s.awaySince && p.human && Date.now() - s.awaySince > AWAY_GRACE) {
+        p.human = false; p.bot = { foe: null, wantAim: p.aim, replan: 99 }; p.target = null;
+      }
+    }
   }
   broadcastQueue() {
     const startsIn = Math.max(0, Math.ceil((this.created + LOBBY_WAIT - Date.now()) / 1000));
@@ -106,7 +127,7 @@ class Room {
       case 'round': ne = { type: 'round', round: e.round, final: e.final }; break;
       case 'fire': ne = { type: 'fire', shots: e.shots.map(s => ({ from: s.from.id, x: s.x, z: s.z, hit: s.hit ? s.hit.id : null })), victims: e.victims.map(v => v.id) }; break;
       case 'drop': ne = { type: 'drop', fell: e.fell.map(p => p.id) }; break;
-      case 'over': { const w = this.match!.alive; ne = { type: 'over', winner: w.length === 1 ? w[0].id : null }; this.state = 'done'; this.doneAt = Date.now(); break; }
+      case 'over': { const w = this.match!.alive; this.winner = w.length === 1 ? w[0].id : null; ne = { type: 'over', winner: this.winner }; this.state = 'done'; this.doneAt = Date.now(); break; }
       default: ne = e as NetEvent;
     }
     // positions at the lock are sent first, so everyone sees the same lasers as the server
@@ -114,12 +135,14 @@ class Room {
     for (const s of this.seats.values()) send(s.client ?? undefined, { t: 'ev', e: ne });
   }
 
-  /** Per-player view of the match. While hiding, you only get your own position. */
+  /** Per-player view of the match. While hiding you only get your own position,
+   *  unless you're already out: then you're spectating and see everyone. */
   snapshot() {
     const m = this.match!; const hiding = m.phase === 'hide';
     for (const [id, s] of this.seats) {
       if (!s.client) continue;
-      const ps: PlayerSnap[] = m.players.map(p => (hiding && p.id !== id && p.alive)
+      const spectator = !m.players[id].alive;
+      const ps: PlayerSnap[] = m.players.map(p => (hiding && !spectator && p.id !== id && p.alive)
         ? { id: p.id, al: p.alive }
         : { id: p.id, x: +p.x.toFixed(3), z: +p.z.toFixed(3), a: +p.aim.toFixed(3), al: p.alive });
       send(s.client, { t: 'snap', ph: m.phase, tl: +m.t.toFixed(3), tt: m.tt, ps });
@@ -143,13 +166,7 @@ class Room {
     }
     if (!this.match) return;
     const m = this.match;
-    // players who stayed away too long are handed to a bot
-    for (const [id, s] of this.seats) {
-      const p = m.players[id];
-      if (!s.client && s.awaySince && p.human && Date.now() - s.awaySince > AWAY_GRACE) {
-        p.human = false; p.bot = { foe: null, wantAim: p.aim, replan: 99 }; p.target = null;
-      }
-    }
+    this.botTakeover();
     if (this.state === 'playing') m.update(dt);
     if (++this.tickN % 2 === 0 && m.phase !== 'over') this.snapshot();
   }
@@ -180,7 +197,16 @@ function onMessage(c: Client, raw: string) {
     }
     case 'rejoin': {
       const t = tokens.get(String(m.token));
-      if (!t || t.room.state === 'done' || !t.room.match) { send(c, { t: 'error', message: 'That match has ended.' }); return; }
+      if (t && t.room.state === 'done' && t.room.match) {
+        // the match finished while they were reconnecting: still give them the final result
+        send(c, { t: 'start', you: t.seat, token: String(m.token), arena: t.room.arena.id, seats: t.room.info, state: t.room.fullState() });
+        send(c, { t: 'ev', e: { type: 'over', winner: t.room.winner } });
+        return;
+      }
+      if (!t || t.room.state === 'done' || !t.room.match) {
+        if (process.env.LC_DEBUG) console.log(`rejoin refused: ${!t ? 'unknown ticket ' + String(m.token).slice(0, 6) : 'room ' + t.room.state}`);
+        send(c, { t: 'error', message: 'That match has ended.' }); return;
+      }
       const seat = t.room.seats.get(t.seat)!;
       if (seat.client && seat.client !== c) seat.client.ws.close();
       seat.client = c; seat.awaySince = 0; c.room = t.room; c.seat = t.seat;
@@ -201,7 +227,7 @@ function onMessage(c: Client, raw: string) {
       if (r.match.phase === 'hide' && p.alive && Number.isFinite(m.a)) p.aim = Number(m.a);
       break;
     }
-    case 'leave': c.room?.remove(c); break;
+    case 'leave': c.room?.remove(c, true); break;
   }
 }
 

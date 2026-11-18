@@ -104,7 +104,10 @@ export class Match {
   hitWidth() { return LASER.hitWidth + (this.final ? LASER.suddenDeathGrow * this.sudden : 0); }
 
   /** Players nobody may see right now. This is the heart of the hide-and-aim rule. */
-  isHidden(p: Player): boolean { return this.phase === 'hide' && !p.human; }
+  isHidden(p: Player): boolean { return this.phase === 'hide' && !p.human && !this.spectating; }
+  /** Online, after you're out: you watch the rest of the match and see everyone, even while they hide.
+   *  (Only on the phone's mirror copy; the server decides what a spectator is sent.) */
+  get spectating() { return this.mirror && this.online && !!this.me && !this.me.alive && this.phase !== 'over'; }
   anyHidden() { return this.players.some(p => p.alive && this.isHidden(p)); }
 
   /** Who the local input controls right now, if anyone. */

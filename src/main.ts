@@ -15,6 +15,11 @@ import { adSpinsLeft, adsLeftToday, buyProduct, exchange, freeSpinReady, initAds
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const view = new ArenaView($('view') as HTMLCanvasElement, $('labels'));
+view.onFlash = meHit => {
+  const f = $('flash'); f.classList.toggle('hurt', meHit);
+  f.style.transition = 'none'; f.style.opacity = meHit ? '1' : '0.8'; void f.offsetWidth;
+  f.style.transition = `opacity ${meHit ? 0.9 : 0.35}s ease-out`; f.style.opacity = '0';
+};
 
 // ---------------- state ----------------
 type Screen = 'home' | 'shop' | 'settings' | 'howto' | 'daily' | 'missions' | 'spin' | 'online' | 'botsetup' | 'onboard' | 'game' | 'pause' | 'result';
@@ -172,7 +177,12 @@ function openOnline() {
     start: (m, resumed) => {
       if (session !== me) return;
       $('netlost').hidden = true;
-      if (resumed) return;
+      if (resumed) {   // back after a dropped connection: bring the HUD up to date
+        $('roundTag').textContent = 'ROUND ' + m.round;
+        $('phaseTag').textContent = PHASE_LABEL[m.phase] ?? '';
+        chips(); updateControls(); view.setMatch(m); view.setFloor(profile.equip.floor);
+        return;
+      }
       ($('netSpin')).hidden = false;
       beginMatch(m);
       track('match_start', { arena: m.arena.id, bots: m.players.length - 1, diff: 'online', tutorial: false });
@@ -539,21 +549,21 @@ function beginMatch(m: Match) {
           const meHit = e.victims.includes(m.me);
           buzz(meHit ? [80, 60, 120] : 50);
           const v = e.victims[0];
-          banner(e.victims.length > 1 ? `${e.victims.length} DOWN!` : meHit ? 'YOU\'RE OUT!' : `${v.name.toUpperCase()} IS OUT!`, '', 1000, meHit ? BANNER.red : BANNER.gold);
+          banner(e.victims.length > 1 ? `${e.victims.length} DOWN!` : meHit ? 'YOU\'RE OUT!' : `${v.name.toUpperCase()} IS OUT!`, meHit && m.online ? 'Now spectating' : '', meHit ? 1400 : 1000, meHit ? BANNER.red : BANNER.gold);
         } else banner('MISSED!', 'Everyone dodged', 900, BANNER.white);
         if (m.tutorial && m.round === 1) {
           const mine = m.shots.find(s => s.from === m.me);
           setCoach(mine?.hit ? `Great shot! You got ${mine.hit.name}!` : 'Missed! The trick is guessing where they moved.');
         }
-        chips();
+        chips(); updateControls();
         break;
       }
       case 'drop':
-        sfx.drop(); buzz(30); if (e.fell.length) banner('FELL!', e.fell.map(p => p.name).join(' · '), 1000, BANNER.red); chips();
+        sfx.drop(); buzz(30); if (e.fell.length) banner('FELL!', e.fell.map(p => p.name).join(' · '), 1000, BANNER.red); chips(); updateControls();
         if (m.tutorial && m.round === 1) setCoach('The pink ring just fell! Never stand on pink tiles.');
         break;
       case 'sudden': banner('SUDDEN DEATH', 'Lasers get wider', 1000, BANNER.red); break;
-      case 'over': setCoach(null); setTimeout(() => { if (match === m) results(m); }, 1400); break;
+      case 'over': setCoach(null); updateControls(); setTimeout(() => { if (match === m && screen !== 'result') results(m); }, 1400); break;
     }
   });
   paused = false;
@@ -561,6 +571,13 @@ function beginMatch(m: Match) {
   view.snapCamera();
 }
 $('pauseBtn').onclick = () => { sfx.click(); pause(); };
+// online, after you're out: leave early and get your results now (your place is already decided)
+$('specLeave').onclick = () => {
+  const m = match; if (!m || !m.online || m.me.alive) return;
+  sfx.click(); track('spectate_leave', { round: m.round });
+  session?.leave(); session = null; $('pingTag').hidden = true; $('specbar').hidden = true;
+  results(m);
+};
 $('resumeBtn').onclick = () => { sfx.click(); paused = false; show('game'); };
 $('pauseBtn').addEventListener('click', () => { if (match?.online) paused = false; });
 $('quitBtn').onclick = () => { sfx.click(); paused = false; show('home'); };
@@ -582,6 +599,9 @@ function updateControls() {
   const m = match, c = m?.controlled();
   const inGame = screen === 'game';
   $('aimpad').hidden = $('movepad').hidden = !(inGame && c);
+  const spec = !!(inGame && m?.spectating);
+  if (spec) { const left = m!.alive.length; $('specSub').textContent = `${left} PLAYER${left === 1 ? '' : 'S'} LEFT`; }
+  $('specbar').hidden = !spec;
   if (!c) { moveStick.reset(); aimStick.reset(); }
   const hint = $('hint');
   if (inGame && m?.phase === 'hide' && c && !m.tutorial && m.round <= 1 && profile.stats.matches < 3) { hint.hidden = false; hint.textContent = 'Move somewhere new. Aim where you think someone went!'; }
@@ -604,12 +624,14 @@ function results(m: Match) {
   updateControls();
   const me = m.me, place = m.placeOf(me), kills = me.kills;
   const won = me.alive && m.alive.length === 1;
+  const draw = !won && m.alive.length === 0 && !!m.out[m.out.length - 1]?.includes(me);   // the last ones standing went out together
   let coins = Math.round((REWARDS.perMatch + me.survived * REWARDS.perRoundSurvived + kills * REWARDS.perKill + (won ? REWARDS.win : 0)) * diffMult[m.diff] * (m.online ? 1.3 : 1));
   if (m.online) { profile.online.matches++; if (won) profile.online.wins++; }
   const firstTime = m.tutorial && !profile.tutorialDone;
   if (firstTime) { coins += 100; profile.tutorialDone = true; track('tutorial_complete', { won }); }
   const sub = firstTime ? 'Tutorial complete! Here are 100 bonus coins.'
     : won ? `Last one standing out of ${m.players.length}!`
+    : draw ? 'Everyone left went out at the same time.'
     : me.how === 'fell' ? 'You were on the outer ring when it dropped.'
     : me.killedBy ? `${me.killedBy.name} guessed where you went.` : 'You got caught in a laser.';
   won ? sfx.win() : sfx.lose();
@@ -625,7 +647,7 @@ function results(m: Match) {
   for (const u of ups) track('level_up', { level: u.level });
   const done = m.tutorial ? [] : trackMatch({ won, kills, rounds: me.survived, diff: m.diff, reachedFinal: m.reachedFinal, bots: m.players.length - 1 });
 
-  const t = $('resTitle'); t.textContent = won ? 'VICTORY!' : 'ELIMINATED'; t.className = 'ribbon ' + (won ? 'win' : 'lose');
+  const t = $('resTitle'); t.textContent = won ? 'VICTORY!' : draw ? 'DRAW!' : 'ELIMINATED'; t.className = 'ribbon ' + (won || draw ? 'win' : 'lose');
   $('resLabel').textContent = `${m.arena.name.toUpperCase()} · ${m.online ? 'ONLINE' : m.diff.toUpperCase()}`;
   $('resSub').textContent = sub;
   $('stPlace').textContent = ord(place);
@@ -808,4 +830,4 @@ initStore(() => { if (screen === 'shop') renderShop(); refreshHome(); });
 { const g = noAdsDaily(); if (g) setTimeout(() => toast(`NO-ADS PASS: +${g} GEMS TODAY`), 1200); }
 
 // debug hook for automated tests
-(window as unknown as { __lc: unknown }).__lc = { get match() { return match; }, startMatch, setup, profile, show, openDaily, openMissions, openSpin, openShop, refreshHome, recentEvents };
+(window as unknown as { __lc: unknown }).__lc = { get match() { return match; }, get screen() { return screen; }, dropNet: () => (session as unknown as { ws: WebSocket | null })?.ws?.close(), startMatch, setup, profile, show, openDaily, openMissions, openSpin, openShop, refreshHome, recentEvents };
