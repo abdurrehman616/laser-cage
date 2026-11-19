@@ -15,9 +15,7 @@ interface Vis {
   beamMat: THREE.MeshBasicMaterial; glowMat: THREE.MeshBasicMaterial;
   label: HTMLDivElement;
   lastX: number; lastZ: number; walk: number;
-  turn: number;                 // body facing, eased toward the aim so the gun swings instead of snapping
-  recoil: number; flash: number; hit: number;   // 1 → 0 after firing / being hit
-  charge: THREE.Mesh; muzzle: THREE.Mesh; chargeMat: THREE.MeshBasicMaterial; muzzleMat: THREE.MeshBasicMaterial;
+  hit: number;                  // 1 → 0 after being hit (white flash)
 }
 
 function canvasTex(size: number, draw: (g: CanvasRenderingContext2D, s: number) => void, repeat = 1) {
@@ -257,21 +255,15 @@ export class ArenaView {
     const glow = new THREE.Mesh(unit, glowMat); glow.scale.set(1, 0.13, 0.13);
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), glowMat);
     this.scene.add(beam, glow, dot);
-    const add = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false } as const;
-    const chargeMat = new THREE.MeshBasicMaterial({ color: p.color, opacity: 0.9, ...add });
-    const muzzleMat = new THREE.MeshBasicMaterial({ color: '#ffffff', opacity: 0, ...add });
-    const charge = new THREE.Mesh(this.orbGeo, chargeMat); charge.visible = false;
-    const muzzle = new THREE.Mesh(this.orbGeo, muzzleMat); muzzle.visible = false;
-    this.scene.add(charge, muzzle);
     const label = document.createElement('div'); label.className = 'nametag'; label.textContent = p.name;
     label.style.setProperty('--c', p.color);
     this.labels.appendChild(label);
-    return { p, rig, beam, glow, dot, beamMat, glowMat, label, lastX: p.x, lastZ: p.z, walk: 0, turn: -p.aim, recoil: 0, flash: 0, hit: 0, charge, muzzle, chargeMat, muzzleMat };
+    return { p, rig, beam, glow, dot, beamMat, glowMat, label, lastX: p.x, lastZ: p.z, walk: 0, hit: 0 };
   }
 
   private dropVis(v: Vis) {
-    this.scene.remove(v.rig.root, v.beam, v.glow, v.dot, v.charge, v.muzzle);
-    disposeCharacter(v.rig); v.beamMat.dispose(); v.glowMat.dispose(); v.chargeMat.dispose(); v.muzzleMat.dispose();
+    this.scene.remove(v.rig.root, v.beam, v.glow, v.dot);
+    disposeCharacter(v.rig); v.beamMat.dispose(); v.glowMat.dispose();
     v.label.remove();
   }
 
@@ -301,7 +293,7 @@ export class ArenaView {
   private clearShots() {
     while (this.shotGroup.children.length) { const c = this.shotGroup.children.pop() as THREE.Mesh; (c.material as THREE.Material).dispose(); }
   }
-  /** FIRE: every laser shoots out of its gun as a white-hot beam, with a muzzle flash, recoil and sparks where it lands. */
+  /** FIRE: every laser fires from its gun; sparks where a miss lands. */
   showShots(m: Match) {
     this.clearShots();
     let meHit = false;
@@ -319,14 +311,13 @@ export class ArenaView {
         mesh.userData.base = o;
         this.shotGroup.add(mesh);
       }
-      v.recoil = 1; v.flash = 1;
       if (s.hit) {
         const hv = this.vis.find(x => x.p === s.hit); if (hv) hv.hit = 1;
         if (s.hit.human && s.hit === m.me) meHit = true;
         this.burst(s.hit.x, s.hit.z, s.from.color, item(s.from.look.fx || 'fx_spark').fx);
       } else this.impact(to, from, s.from.color);
     }
-    this.shake = 0.45;
+    this.shake = 0.35;
     this.onFlash?.(meHit);
   }
   /** Sparks splashing back off the cage where a laser lands. */
@@ -556,10 +547,7 @@ export class ArenaView {
     // body
     rig.root.visible = !hidden && !(dead && since > 1.6);
     rig.root.position.set(p.x, 0, p.z);
-    // ease the body toward the aim (fast), so the gun swings round instead of snapping
-    let dA = -p.aim - v.turn; dA = Math.atan2(Math.sin(dA), Math.cos(dA));
-    v.turn = isPreview ? -p.aim : v.turn + dA * (1 - Math.exp(-dt * 22));
-    rig.root.rotation.y = v.turn;
+    rig.root.rotation.y = -p.aim;
     const moved = Math.hypot(p.x - v.lastX, p.z - v.lastZ);
     v.lastX = p.x; v.lastZ = p.z;
     v.walk = moved > 0.001 ? v.walk + dt * 12 : v.walk * 0.8;
@@ -576,15 +564,6 @@ export class ArenaView {
       else if (dance === 'wiggle') { rig.body.rotation.x = Math.sin(t * 12) * 0.28; rig.legL.rotation.z = Math.sin(t * 12) * 0.4; rig.legR.rotation.z = -Math.sin(t * 12) * 0.4; }
       else if (dance === 'flip') { const k = (t % 1.3) / 1.3, air = Math.min(1, k * 1.25); rig.body.position.y = Math.sin(air * Math.PI) * 1.1; rig.body.rotation.z = air * Math.PI * 2; }
     }
-    // recoil: the gun kicks back and up when it fires
-    if (v.recoil > 0) {
-      v.recoil = Math.max(0, v.recoil - dt * 4.5);
-      const r = v.recoil * v.recoil;
-      rig.body.position.x -= r * 0.2; rig.body.rotation.z += r * 0.3;
-    }
-    // charging up during the lock: a tiny shake that grows
-    const charging = !!(m && !isPreview && m.phase === 'lock' && p.alive && !hidden);
-    if (charging) { const k = 1 - m!.t / m!.tt; rig.body.position.z += Math.sin(this.time * 70 + p.id) * 0.012 * k; }
     if (dead && p.how === 'shot') {
       const k = Math.min(1, since * 3);
       rig.body.rotation.z = k * 1.45;            // topple backwards
@@ -646,17 +625,6 @@ export class ArenaView {
       }
       v.glowMat.opacity = 0.35 * flick;
 
-    }
-
-    // small muzzle flash when it fires
-    const tip = v.flash > 0 ? rig.gunTip.getWorldPosition(this.tA) : null;
-    v.charge.visible = false;
-    v.muzzle.visible = v.flash > 0;
-    if (v.flash > 0 && tip) {
-      v.flash = Math.max(0, v.flash - dt * 6);
-      v.muzzle.position.copy(tip);
-      v.muzzle.scale.setScalar(1 + (1 - v.flash) * 1.5);
-      v.muzzleMat.opacity = v.flash * 0.8;
     }
 
     // name tag
