@@ -230,7 +230,7 @@ export const FIREBASE = {
   functionsRegion: 'asia-south1',   // Mumbai, closest to Pakistan
   verifyPurchases: true,            // check Play purchases on the server once the function is deployed
 };
-export const APP_VERSION = '0.9.0';
+export const APP_VERSION = '0.9.1';
 
 // ---------- Online (Sprint 5) ----------
 export const ONLINE = {

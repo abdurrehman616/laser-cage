@@ -406,3 +406,22 @@ button.coins { cursor: pointer; color: inherit; }
 .gbtn.googlebtn .g { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 17px/1 Arial, sans-serif;
   color: #fff; background: conic-gradient(#ea4335 0 25%, #fbbc05 0 50%, #34a853 0 75%, #4285f4 0); text-shadow: none; }
 .gbtn.googlebtn.out { background: linear-gradient(180deg, #4a5596, #353f7d); color: #fff; box-shadow: inset 0 -5px 0 #262e63, 0 4px 0 var(--outline); text-shadow: var(--stroke); }
+
+/* settings scrolls (the game blocks touch scrolling elsewhere, so scroll areas must opt back in) */
+.setpanel { flex: 0 1 auto; min-height: 0; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.setpanel::-webkit-scrollbar { display: none; }
+.setpanel > * { flex: none; }
+.card, .grid, .store, .days, .mlist { touch-action: pan-y; overscroll-behavior: contain; }
+
+/* game-style toggles: chunky pill with ON / OFF and a bouncy knob */
+.toggle { cursor: pointer; padding: 10px 12px 10px 16px; transition: transform .08s; -webkit-tap-highlight-color: transparent; }
+.toggle:active { transform: scale(.98); }
+.toggle i { width: 76px; height: 38px; border-radius: 12px; background: linear-gradient(180deg, #2a3263, #3a4380); box-shadow: inset 0 4px 0 rgba(0,0,0,.35), 0 3px 0 var(--outline); transition: background .2s; }
+.toggle i::before { content: 'OFF'; position: absolute; right: 9px; top: 50%; transform: translateY(-52%); font-family: var(--f-display); font-size: 14px; letter-spacing: .04em; color: #8e98d0; text-shadow: none; transition: opacity .15s; }
+.toggle i::after { top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 9px; border: 2.5px solid var(--outline);
+  background: linear-gradient(180deg, #ffffff, #d9def5); box-shadow: inset 0 -3px 0 rgba(0,0,0,.15), 0 2px 0 rgba(11,18,64,.5);
+  transition: left .22s cubic-bezier(.3, 1.6, .5, 1); }
+.toggle input:checked + i { background: linear-gradient(180deg, var(--green-hi), var(--green-lo)); box-shadow: inset 0 -4px 0 rgba(0,0,0,.2), inset 0 2px 0 rgba(255,255,255,.4), 0 3px 0 var(--outline); }
+.toggle input:checked + i::before { content: 'ON'; right: auto; left: 11px; color: #fff; text-shadow: var(--stroke); }
+.toggle input:checked + i::after { left: 39px; }
+.setpanel { -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 18px), transparent); padding-bottom: 22px; }
