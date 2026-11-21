@@ -12,7 +12,28 @@
           "package_name": "com.lasercage.game"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "583033432912-4i1e9jhrn3dlkiddcqnv3hms8qim37if.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lasercage.game",
+            "certificate_hash": "843e736fb8a00aac7e215d022045003eca3242e3"
+          }
+        },
+        {
+          "client_id": "583033432912-vit2eg8d09v3vpjv732kh2qu0c603cu0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lasercage.game",
+            "certificate_hash": "83830b5445ac1294c7447bfbc045a0d8530da74b"
+          }
+        },
+        {
+          "client_id": "583033432912-9aoikvacqdi1ntof450952spcns6r2p0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDCqXC2_ZbmOn1ZP_i5xDIlgwihc-FFz_g"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "583033432912-9aoikvacqdi1ntof450952spcns6r2p0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
