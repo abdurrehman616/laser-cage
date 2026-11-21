@@ -2,5 +2,15 @@
   "appId": "com.lasercage.game",
   "appName": "Laser Cage",
   "webDir": "dist",
-  "android": { "backgroundColor": "#14205a" }
+  "android": {
+    "backgroundColor": "#14205a"
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": [
+        "google.com"
+      ]
+    }
+  }
 }

@@ -7,7 +7,7 @@ import { buzz, playMusic, refreshMusic, sfx, unlockAudio } from './audio';
 import { addXp, arenaUnlocked, claimDaily, claimMission, dailyAvailable, matchXp, missions, missionsReady, nextUnlock, trackMatch } from './progress';
 import { EXCHANGE, PRODUCTS, SPIN, NOADS_DAILY_GEMS, STARTER } from './config';
 import { track, diagnostics, recentEvents } from './analytics';
-import { accountId, cloudState, initCloud, onCloudState } from './cloud';
+import { account, cloudState, initCloud, onCloudState, signInWithGoogle, signOutGoogle } from './cloud';
 import { APP_VERSION, ONLINE } from './config';
 import { OnlineSession } from './net/online';
 import { openOnboarding } from './onboard';
@@ -207,12 +207,38 @@ $('settingsBtn').onclick = () => {
   show('settings');
 };
 function refreshAccount() {
-  const st = cloudState();
-  $('acctLine').textContent = st === 'off' ? 'Guest. Your progress is saved on this phone. Cloud backup is coming soon.'
-    : st === 'synced' ? 'Guest. Progress is backed up to the cloud.'
-    : st === 'connecting' ? 'Connecting to cloud backup…' : 'Offline. Progress will back up when you\'re online.';
-  accountId().then(id => { if (id && screen === 'settings') $('acctLine').textContent += ` ID: ${id.slice(0, 8).toUpperCase()}`; });
+  const st = cloudState(), btn = $('googleBtn');
+  btn.hidden = st === 'off';
+  $('acctLine').textContent = st === 'off' ? 'Guest. Your progress is saved on this phone.'
+    : st === 'connecting' ? 'Connecting to your account…'
+    : st === 'offline' ? 'Offline. Progress will back up when you\'re online.'
+    : 'Guest. Progress is backed up to the cloud.';
+  account().then(a => {
+    if (!a || screen !== 'settings') return;
+    if (a.google) {
+      $('acctLine').textContent = `Signed in with Google${a.name ? ' as ' + a.name : ''}. Your progress is safe on any phone.`;
+      $('googleLabel').textContent = 'SIGN OUT'; btn.classList.add('out');
+    } else {
+      if (st === 'synced') $('acctLine').textContent = `Guest (ID ${a.id.slice(0, 8).toUpperCase()}). Sign in with Google to keep your progress if you change phones.`;
+      $('googleLabel').textContent = 'SIGN IN WITH GOOGLE'; btn.classList.remove('out');
+    }
+  });
 }
+let signingIn = false;
+$('googleBtn').onclick = async () => {
+  if (signingIn) return; signingIn = true; sfx.click();
+  try {
+    const a = await account();
+    if (a?.google) { await signOutGoogle(); toast('Signed out. You\'re playing as a guest on this phone.'); track('google_signout'); }
+    else {
+      const r = await signInWithGoogle();
+      track('google_signin', { result: r });
+      if (r === 'ok') { sfx.buy(); toast('Signed in! Your progress is safe.'); }
+      else if (r === 'switched') { sfx.buy(); toast('Welcome back! Loaded your Google account.'); refreshHome(); }
+      else if (r === 'error') { sfx.denied(); toast('Couldn\'t sign in. Check your connection and try again.'); }
+    }
+  } finally { signingIn = false; refreshAccount(); }
+};
 onCloudState(() => { if (screen === 'settings') refreshAccount(); });
 $('versionLine').textContent = `Laser Cage v${APP_VERSION}`;
 $('reportBtn').onclick = async () => {

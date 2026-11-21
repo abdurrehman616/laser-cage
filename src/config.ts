@@ -217,20 +217,20 @@ export const SPIN_AD_EXTRA = 2;   // extra spins per day by watching an ad
 // Off until the Firebase project exists. Paste the Web app config from
 // Firebase console → Project settings → Your apps → Web app, then set enabled: true.
 export const FIREBASE = {
-  enabled: false,
+  enabled: true,
   config: {
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: '',
-    measurementId: '',
+    apiKey: 'AIzaSyAcogvwEl52ME7lgdGFYKLRyHV0BHpCBgk',
+    authDomain: 'laser-cage.firebaseapp.com',
+    projectId: 'laser-cage',
+    storageBucket: 'laser-cage.firebasestorage.app',
+    messagingSenderId: '583033432912',
+    appId: '1:583033432912:web:f67e744dbb774e78a91a55',
+    measurementId: 'G-RZ14QYNKL1',
   },
   functionsRegion: 'asia-south1',   // Mumbai, closest to Pakistan
   verifyPurchases: true,            // check Play purchases on the server once the function is deployed
 };
-export const APP_VERSION = '0.8.2';
+export const APP_VERSION = '0.9.0';
 
 // ---------- Online (Sprint 5) ----------
 export const ONLINE = {

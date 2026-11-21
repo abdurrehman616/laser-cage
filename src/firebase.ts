@@ -29,6 +29,7 @@ export function firebase(): Promise<FB | null> {
       ]);
       const app = initializeApp(FIREBASE.config);
       const auth = authMod.initializeAuth(app, { persistence: authMod.indexedDBLocalPersistence });
+      await auth.authStateReady();
       const user = auth.currentUser ?? (await authMod.signInAnonymously(auth)).user;
       const db = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache() });
       const functions = fnMod.getFunctions(app, FIREBASE.functionsRegion);
