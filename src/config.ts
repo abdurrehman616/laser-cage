@@ -1,3 +1,4 @@
+import pkg from '../package.json';
 // Tuning knobs and the cosmetic catalog. Change numbers here to rebalance the game.
 
 export const ARENA = {
@@ -230,7 +231,8 @@ export const FIREBASE = {
   functionsRegion: 'asia-south1',   // Mumbai, closest to Pakistan
   verifyPurchases: true,            // check Play purchases on the server once the function is deployed
 };
-export const APP_VERSION = '0.9.1';
+/** Comes from package.json, which also names the Android build, so the two can't drift apart. */
+export const APP_VERSION: string = pkg.version;
 
 // ---------- Online (Sprint 5) ----------
 export const ONLINE = {
